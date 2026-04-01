@@ -70,4 +70,3 @@ const DEFAULT_STATS: Stats = {
   fierceBlockEfficiency: 50,
   fierceAbsorbEfficiency: 50,
 };
-}
