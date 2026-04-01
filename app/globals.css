@@ -1,0 +1,89 @@
+:root {
+
+.pill input {
+  margin-top: 3px;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+}
+
+.metric .value {
+  font-size: 34px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.bar-wrap {
+  margin-top: 12px;
+}
+
+.bar {
+  height: 10px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.bar.blue > span { background: linear-gradient(90deg, #4f9dff, #77beff); }
+.bar.violet > span { background: linear-gradient(90deg, #9b6bff, #c8a6ff); }
+.bar.red > span { background: linear-gradient(90deg, #ff6d6d, #ff9898); }
+.bar.green > span { background: linear-gradient(90deg, #52c98f, #7ce6b1); }
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compare-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255,255,255,0.03);
+}
+
+.compare-card strong {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.delta.pos { color: var(--green); }
+.delta.warn { color: var(--orange); }
+.delta.bad { color: var(--red); }
+
+.notice {
+  border-left: 4px solid var(--orange);
+  padding: 12px 14px;
+  background: rgba(255,177,92,0.08);
+  border-radius: 12px;
+}
+
+.small {
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .hero, .main-grid, .results-grid, .grid-4, .grid-3, .grid-2, .compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fields, .pill-grid {
+    grid-template-columns: 1fr;
+  }
+}
