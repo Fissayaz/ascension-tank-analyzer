@@ -8,7 +8,7 @@ export default function Page() {
 
   return (
     <main style={{ padding: 40, color: "white", background: "#0f172a", minHeight: "100vh" }}>
-      <h1>Ascension Tank Analyzer</h1>
+      <h1>Ascension Tank Analyzer v1</h1>
 
       <div style={{ marginTop: 20 }}>
         <label>HP:</label>
