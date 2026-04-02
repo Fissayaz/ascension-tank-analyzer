@@ -30,12 +30,11 @@ export default function HomePage() {
         padding: 32,
       }}
     >
-      <div style={{ maxWidth: 1320, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1320, margin: "0 auto", display: "grid", gap: 24 }}>
         <section
           style={{
             ...cardStyle,
             padding: 28,
-            marginBottom: 24,
             background:
               "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.95))",
           }}
@@ -51,11 +50,11 @@ export default function HomePage() {
               marginBottom: 16,
             }}
           >
-            Ascension Tank Analyzer — V8
+            Ascension Tank Analyzer — V10
           </div>
 
-          <h1 style={{ fontSize: 44, margin: 0, lineHeight: 1.05 }}>
-            La base d’un vrai site de référence tank pour Ascension.
+          <h1 style={{ fontSize: 46, margin: 0, lineHeight: 1.05 }}>
+            A tank reference site for Ascension, built step by step.
           </h1>
 
           <p
@@ -63,14 +62,14 @@ export default function HomePage() {
               color: "#94a3b8",
               marginTop: 16,
               fontSize: 18,
-              maxWidth: 900,
+              maxWidth: 960,
               lineHeight: 1.6,
             }}
           >
-            Cette version structure enfin le projet comme un vrai site : une page
-            d’accueil, un calculateur, un guide et une page dédiée à Fierce Blow.
-            L’objectif est clair : aider les tanks débutants comme avancés à mieux
-            comprendre leur build et leurs priorités défensives.
+            The goal is no longer to build a small personal calculator. This site
+            is being shaped into a real tank reference for the Ascension
+            community: readable for newer players, useful for experienced tanks,
+            and structured to grow without turning into a mess.
           </p>
 
           <div
@@ -82,19 +81,25 @@ export default function HomePage() {
             }}
           >
             <Link href="/calculator" style={buttonStyle}>
-              Ouvrir le calculateur
+              Open Calculator
+            </Link>
+            <Link
+              href="/builds"
+              style={{ ...buttonStyle, background: "#475569" }}
+            >
+              View Tank Archetypes
             </Link>
             <Link
               href="/guide"
               style={{ ...buttonStyle, background: "#334155" }}
             >
-              Lire le guide
+              Read the Guide
             </Link>
             <Link
               href="/fierce-blow"
               style={{ ...buttonStyle, background: "#7c2d12" }}
             >
-              Comprendre Fierce Blow
+              Understand Fierce Blow
             </Link>
           </div>
         </section>
@@ -102,32 +107,70 @@ export default function HomePage() {
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
             gap: 20,
           }}
         >
           <div style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>Calculateur</h2>
+            <h2 style={{ marginTop: 0 }}>Calculator</h2>
             <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>
-              Analyse avoidance, mitigation physique, mitigation magique, EHP,
-              block, absorb et résistance à Fierce Blow.
+              Simulate physical mitigation, magical mitigation, block, absorb,
+              and Fierce Blow survival in one place.
+            </p>
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={{ marginTop: 0 }}>Archetypes</h2>
+            <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>
+              Compare major tank styles such as Block Tank, Bear/EHP Tank,
+              Parry Tank, and Mana/Absorb Tank.
             </p>
           </div>
 
           <div style={cardStyle}>
             <h2 style={{ marginTop: 0 }}>Guide</h2>
             <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>
-              Comprends la différence entre Armor DR, Physical DR, Global DR,
-              Magic DR, block chance, block value et absorb.
+              Learn how Armor DR, Physical DR, Global DR, Magic DR, block chance,
+              block value, and avoidance actually fit together.
             </p>
           </div>
 
           <div style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>Fierce Blow</h2>
+            <h2 style={{ marginTop: 0 }}>Burst Analysis</h2>
             <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>
-              Lis une explication claire de la logique du site pour le burst, les
-              limitations du block/absorb et la lecture anti-burst.
+              Read Fierce Blow separately from normal hits so burst weaknesses do
+              not get hidden behind average mitigation.
             </p>
+          </div>
+        </section>
+
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.1fr 0.9fr",
+            gap: 20,
+          }}
+        >
+          <div style={cardStyle}>
+            <h2 style={{ marginTop: 0 }}>What the site already does well</h2>
+            <ul style={{ color: "#cbd5e1", lineHeight: 1.8, paddingLeft: 18 }}>
+              <li>Separates physical, magical, and Fierce Blow reads</li>
+              <li>Shows multiple defensive layers instead of one fake score</li>
+              <li>Provides quick presets and meaningful toggles</li>
+              <li>Highlights upgrade priorities instead of just showing numbers</li>
+              <li>Begins to speak the language of real tanking decisions</li>
+            </ul>
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={{ marginTop: 0 }}>What comes next</h2>
+            <ul style={{ color: "#cbd5e1", lineHeight: 1.8, paddingLeft: 18 }}>
+              <li>More structured talent and mystic categories</li>
+              <li>Better tank archetype pages</li>
+              <li>Cleaner calculator data organization</li>
+              <li>Stronger “what is my real weakness?” guidance</li>
+              <li>More Ascension-specific defensive logic over time</li>
+            </ul>
           </div>
         </section>
       </div>
