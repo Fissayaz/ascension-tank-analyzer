@@ -2,6 +2,32 @@
 
 import { useMemo, useState } from "react";
 
+type PresetName = "block" | "bear" | "parry" | "mana";
+
+type ToggleItem = {
+  key: string;
+  label: string;
+  category: "stances" | "cooldowns" | "mystics";
+};
+
+type CalcState = {
+  hp: number;
+  armor: number;
+  dodge: number;
+  parry: number;
+  blockChance: number;
+  blockValue: number;
+  basePhysicalDr: number;
+  baseGlobalDr: number;
+  baseMagicDr: number;
+  absorb: number;
+  physicalHit: number;
+  magicalHit: number;
+  fierceBlow: number;
+  fierceBlockEfficiency: number;
+  fierceAbsorbEfficiency: number;
+};
+
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
@@ -10,193 +36,223 @@ function armorReductionPct(armor: number, k = 4000) {
   return (armor / (armor + k)) * 100;
 }
 
-function barColor(type: "physical" | "magic" | "fierce") {
+function barGradient(type: "physical" | "magic" | "fierce") {
   if (type === "physical") return "linear-gradient(90deg, #38bdf8, #2563eb)";
   if (type === "magic") return "linear-gradient(90deg, #a78bfa, #7c3aed)";
   return "linear-gradient(90deg, #fb7185, #dc2626)";
 }
 
-type CompareItem = {
-  label: string;
-  physGain: number;
-  magicGain: number;
-  fierceGain: number;
-  totalGain: number;
+const DEFAULT_STATE: CalcState = {
+  hp: 10000,
+  armor: 12000,
+  dodge: 10,
+  parry: 10,
+  blockChance: 15,
+  blockValue: 300,
+  basePhysicalDr: 0,
+  baseGlobalDr: 0,
+  baseMagicDr: 0,
+  absorb: 0,
+  physicalHit: 6000,
+  magicalHit: 5000,
+  fierceBlow: 9000,
+  fierceBlockEfficiency: 50,
+  fierceAbsorbEfficiency: 50,
 };
 
-type PresetName = "block" | "bear" | "parry" | "mana";
+const TOGGLES: ToggleItem[] = [
+  { key: "defensiveStance", label: "Defensive Stance", category: "stances" },
+  { key: "bearForm", label: "Bear Form", category: "stances" },
+  { key: "righteousFury", label: "Righteous Fury", category: "stances" },
+  { key: "manaForgedBarrier", label: "Mana-Forged Barrier", category: "stances" },
+
+  { key: "shieldWall", label: "Shield Wall", category: "cooldowns" },
+  { key: "barkskin", label: "Barkskin", category: "cooldowns" },
+
+  { key: "carnageIncarnate", label: "Carnage Incarnate", category: "mystics" },
+  { key: "relentless", label: "Relentless", category: "mystics" },
+  { key: "crimsonChampion", label: "Crimson Champion", category: "mystics" },
+];
+
+const PRESETS: Record<
+  PresetName,
+  {
+    state: CalcState;
+    toggles: Record<string, boolean>;
+  }
+> = {
+  block: {
+    state: {
+      ...DEFAULT_STATE,
+      hp: 11000,
+      armor: 14000,
+      dodge: 8,
+      parry: 12,
+      blockChance: 28,
+      blockValue: 550,
+      baseGlobalDr: 2,
+    },
+    toggles: {
+      defensiveStance: true,
+      bearForm: false,
+      righteousFury: true,
+      manaForgedBarrier: false,
+      shieldWall: false,
+      barkskin: false,
+      carnageIncarnate: false,
+      relentless: true,
+      crimsonChampion: true,
+    },
+  },
+  bear: {
+    state: {
+      ...DEFAULT_STATE,
+      hp: 15000,
+      armor: 16500,
+      dodge: 14,
+      parry: 6,
+      blockChance: 0,
+      blockValue: 0,
+      basePhysicalDr: 2,
+      baseGlobalDr: 2,
+    },
+    toggles: {
+      defensiveStance: false,
+      bearForm: true,
+      righteousFury: false,
+      manaForgedBarrier: false,
+      shieldWall: false,
+      barkskin: true,
+      carnageIncarnate: true,
+      relentless: false,
+      crimsonChampion: false,
+    },
+  },
+  parry: {
+    state: {
+      ...DEFAULT_STATE,
+      hp: 10500,
+      armor: 12500,
+      dodge: 10,
+      parry: 24,
+      blockChance: 8,
+      blockValue: 180,
+      baseGlobalDr: 2,
+    },
+    toggles: {
+      defensiveStance: true,
+      bearForm: false,
+      righteousFury: false,
+      manaForgedBarrier: false,
+      shieldWall: false,
+      barkskin: false,
+      carnageIncarnate: false,
+      relentless: true,
+      crimsonChampion: false,
+    },
+  },
+  mana: {
+    state: {
+      ...DEFAULT_STATE,
+      hp: 9500,
+      armor: 10000,
+      dodge: 9,
+      parry: 8,
+      blockChance: 12,
+      blockValue: 220,
+      baseMagicDr: 10,
+      absorb: 1200,
+    },
+    toggles: {
+      defensiveStance: false,
+      bearForm: false,
+      righteousFury: false,
+      manaForgedBarrier: true,
+      shieldWall: false,
+      barkskin: false,
+      carnageIncarnate: false,
+      relentless: false,
+      crimsonChampion: false,
+    },
+  },
+};
 
 export default function CalculatorPage() {
-  const [hp, setHp] = useState(10000);
-  const [armor, setArmor] = useState(12000);
-  const [dodge, setDodge] = useState(10);
-  const [parry, setParry] = useState(10);
-  const [blockChance, setBlockChance] = useState(15);
-  const [blockValue, setBlockValue] = useState(300);
-
-  const [basePhysicalDr, setBasePhysicalDr] = useState(0);
-  const [baseGlobalDr, setBaseGlobalDr] = useState(0);
-  const [baseMagicDr, setBaseMagicDr] = useState(0);
-  const [absorb, setAbsorb] = useState(0);
-
-  const [physicalHit, setPhysicalHit] = useState(6000);
-  const [magicalHit, setMagicalHit] = useState(5000);
-  const [fierceBlow, setFierceBlow] = useState(9000);
-
-  const [fierceBlockEfficiency, setFierceBlockEfficiency] = useState(50);
-  const [fierceAbsorbEfficiency, setFierceAbsorbEfficiency] = useState(50);
-
-  const [defensiveStance, setDefensiveStance] = useState(false);
-  const [bearForm, setBearForm] = useState(false);
-  const [righteousFury, setRighteousFury] = useState(false);
-  const [manaForgedBarrier, setManaForgedBarrier] = useState(false);
-
-  const [shieldWall, setShieldWall] = useState(false);
-  const [barkskin, setBarkskin] = useState(false);
-
-  const [carnageIncarnate, setCarnageIncarnate] = useState(false);
-  const [relentless, setRelentless] = useState(false);
-  const [crimsonChampion, setCrimsonChampion] = useState(false);
+  const [state, setState] = useState<CalcState>(DEFAULT_STATE);
+  const [toggles, setToggles] = useState<Record<string, boolean>>({
+    defensiveStance: false,
+    bearForm: false,
+    righteousFury: false,
+    manaForgedBarrier: false,
+    shieldWall: false,
+    barkskin: false,
+    carnageIncarnate: false,
+    relentless: false,
+    crimsonChampion: false,
+  });
 
   function applyPreset(name: PresetName) {
-    if (name === "block") {
-      setHp(11000);
-      setArmor(14000);
-      setDodge(8);
-      setParry(12);
-      setBlockChance(28);
-      setBlockValue(550);
-      setBasePhysicalDr(0);
-      setBaseGlobalDr(2);
-      setBaseMagicDr(0);
-      setAbsorb(0);
-      setDefensiveStance(true);
-      setBearForm(false);
-      setRighteousFury(true);
-      setManaForgedBarrier(false);
-      setShieldWall(false);
-      setBarkskin(false);
-      setCarnageIncarnate(false);
-      setRelentless(true);
-      setCrimsonChampion(true);
-    }
+    setState(PRESETS[name].state);
+    setToggles(PRESETS[name].toggles);
+  }
 
-    if (name === "bear") {
-      setHp(15000);
-      setArmor(16500);
-      setDodge(14);
-      setParry(6);
-      setBlockChance(0);
-      setBlockValue(0);
-      setBasePhysicalDr(2);
-      setBaseGlobalDr(2);
-      setBaseMagicDr(0);
-      setAbsorb(0);
-      setDefensiveStance(false);
-      setBearForm(true);
-      setRighteousFury(false);
-      setManaForgedBarrier(false);
-      setShieldWall(false);
-      setBarkskin(true);
-      setCarnageIncarnate(true);
-      setRelentless(false);
-      setCrimsonChampion(false);
-    }
+  function updateField<K extends keyof CalcState>(key: K, value: number) {
+    setState((prev) => ({ ...prev, [key]: value }));
+  }
 
-    if (name === "parry") {
-      setHp(10500);
-      setArmor(12500);
-      setDodge(10);
-      setParry(24);
-      setBlockChance(8);
-      setBlockValue(180);
-      setBasePhysicalDr(0);
-      setBaseGlobalDr(2);
-      setBaseMagicDr(0);
-      setAbsorb(0);
-      setDefensiveStance(true);
-      setBearForm(false);
-      setRighteousFury(false);
-      setManaForgedBarrier(false);
-      setShieldWall(false);
-      setBarkskin(false);
-      setCarnageIncarnate(false);
-      setRelentless(true);
-      setCrimsonChampion(false);
-    }
-
-    if (name === "mana") {
-      setHp(9500);
-      setArmor(10000);
-      setDodge(9);
-      setParry(8);
-      setBlockChance(12);
-      setBlockValue(220);
-      setBasePhysicalDr(0);
-      setBaseGlobalDr(0);
-      setBaseMagicDr(10);
-      setAbsorb(1200);
-      setDefensiveStance(false);
-      setBearForm(false);
-      setRighteousFury(false);
-      setManaForgedBarrier(true);
-      setShieldWall(false);
-      setBarkskin(false);
-      setCarnageIncarnate(false);
-      setRelentless(false);
-      setCrimsonChampion(false);
-    }
+  function updateToggle(key: string, value: boolean) {
+    setToggles((prev) => ({ ...prev, [key]: value }));
   }
 
   const calc = useMemo(() => {
-    let finalArmor = armor;
+    let finalArmor = state.armor;
     let stanceArmorPct = 0;
 
-    let physicalDr = basePhysicalDr;
-    let globalDr = baseGlobalDr;
-    let magicDr = baseMagicDr;
+    let physicalDr = state.basePhysicalDr;
+    let globalDr = state.baseGlobalDr;
+    let magicDr = state.baseMagicDr;
 
-    let finalAbsorb = absorb;
-    let finalBlockChance = blockChance;
-    let finalBlockValue = blockValue;
+    let finalAbsorb = state.absorb;
+    let finalBlockChance = state.blockChance;
+    let finalBlockValue = state.blockValue;
     let fierceBlockBonus = 0;
 
-    if (defensiveStance) {
+    if (toggles.defensiveStance) {
       stanceArmorPct += 10;
       globalDr += 5;
     }
 
-    if (bearForm) {
+    if (toggles.bearForm) {
       stanceArmorPct += 30;
     }
 
-    if (righteousFury) {
+    if (toggles.righteousFury) {
       stanceArmorPct += 10;
       fierceBlockBonus += 20;
     }
 
-    if (manaForgedBarrier) {
+    if (toggles.manaForgedBarrier) {
       finalAbsorb += 800;
       magicDr += 10;
     }
 
-    if (shieldWall) {
+    if (toggles.shieldWall) {
       globalDr += 60;
     }
 
-    if (barkskin) {
+    if (toggles.barkskin) {
       globalDr += 15;
     }
 
-    if (carnageIncarnate) {
+    if (toggles.carnageIncarnate) {
       physicalDr += 15;
     }
 
-    if (relentless) {
+    if (toggles.relentless) {
       globalDr += 8;
     }
 
-    if (crimsonChampion) {
+    if (toggles.crimsonChampion) {
       finalBlockChance += 10;
       finalBlockValue *= 1.15;
     }
@@ -208,17 +264,15 @@ export default function CalculatorPage() {
     physicalDr = clamp(physicalDr, 0, 90);
     finalBlockChance = clamp(finalBlockChance, 0, 95);
 
-    const avoidance = clamp(dodge + parry, 0, 100);
+    const avoidance = clamp(state.dodge + state.parry, 0, 100);
     const armorDr = armorReductionPct(finalArmor);
 
-    const physicalAfterArmor = physicalHit * (1 - armorDr / 100);
+    const physicalAfterArmor = state.physicalHit * (1 - armorDr / 100);
     const physicalAfterPhysicalDr = physicalAfterArmor * (1 - physicalDr / 100);
-    const physicalAfterGlobalDr =
-      physicalAfterPhysicalDr * (1 - globalDr / 100);
+    const physicalAfterGlobalDr = physicalAfterPhysicalDr * (1 - globalDr / 100);
 
     const averageBlockReduction =
-      Math.min(finalBlockValue, physicalAfterGlobalDr) *
-      (finalBlockChance / 100);
+      Math.min(finalBlockValue, physicalAfterGlobalDr) * (finalBlockChance / 100);
 
     const physicalAverage = Math.max(
       0,
@@ -226,21 +280,20 @@ export default function CalculatorPage() {
     );
     const physicalWorst = Math.max(0, physicalAfterGlobalDr - finalAbsorb);
 
-    const magicalAfterMagicDr = magicalHit * (1 - magicDr / 100);
+    const magicalAfterMagicDr = state.magicalHit * (1 - magicDr / 100);
     const magicalAfterGlobalDr = magicalAfterMagicDr * (1 - globalDr / 100);
     const magicalAverage = Math.max(0, magicalAfterGlobalDr - finalAbsorb);
 
-    const fierceAfterArmor = fierceBlow * (1 - armorDr / 100);
+    const fierceAfterArmor = state.fierceBlow * (1 - armorDr / 100);
     const fierceAfterPhysicalDr = fierceAfterArmor * (1 - physicalDr / 100);
     const fierceAfterGlobalDr = fierceAfterPhysicalDr * (1 - globalDr / 100);
 
     const fierceBlockChance = clamp(finalBlockChance + fierceBlockBonus, 0, 100);
-    const fierceBlockValue = finalBlockValue * (fierceBlockEfficiency / 100);
-    const fierceAbsorb = finalAbsorb * (fierceAbsorbEfficiency / 100);
+    const fierceBlockValue = finalBlockValue * (state.fierceBlockEfficiency / 100);
+    const fierceAbsorb = finalAbsorb * (state.fierceAbsorbEfficiency / 100);
 
     const fierceAverageBlockReduction =
-      Math.min(fierceBlockValue, fierceAfterGlobalDr) *
-      (fierceBlockChance / 100);
+      Math.min(fierceBlockValue, fierceAfterGlobalDr) * (fierceBlockChance / 100);
 
     const fierceAverage = Math.max(
       0,
@@ -249,48 +302,42 @@ export default function CalculatorPage() {
     const fierceWorst = Math.max(0, fierceAfterGlobalDr - fierceAbsorb);
 
     const physicalReduction = clamp(
-      (1 - physicalAverage / Math.max(1, physicalHit)) * 100,
+      (1 - physicalAverage / Math.max(1, state.physicalHit)) * 100,
       0,
       99
     );
     const magicalReduction = clamp(
-      (1 - magicalAverage / Math.max(1, magicalHit)) * 100,
+      (1 - magicalAverage / Math.max(1, state.magicalHit)) * 100,
       0,
       99
     );
     const fierceReduction = clamp(
-      (1 - fierceAverage / Math.max(1, fierceBlow)) * 100,
+      (1 - fierceAverage / Math.max(1, state.fierceBlow)) * 100,
       0,
       99
     );
 
     let tankProfile = "Hybrid Tank";
-    if (finalBlockChance >= 22 && finalBlockValue >= physicalHit * 0.08) {
+    if (finalBlockChance >= 22 && finalBlockValue >= state.physicalHit * 0.08) {
       tankProfile = "Block Tank";
-    } else if (parry >= dodge + 5) {
+    } else if (state.parry >= state.dodge + 5) {
       tankProfile = "Parry Tank";
-    } else if (hp >= 14000 && finalArmor >= 15000) {
+    } else if (state.hp >= 14000 && finalArmor >= 15000) {
       tankProfile = "Bear / EHP Tank";
-    } else if (manaForgedBarrier || finalAbsorb >= 1000) {
+    } else if (toggles.manaForgedBarrier || finalAbsorb >= 1000) {
       tankProfile = "Mana / Absorb Tank";
     }
 
-    let priority = "Aucune priorité évidente.";
-    if (fierceReduction < 35 && finalBlockValue < physicalHit * 0.08) {
-      priority = "Monte la block value en priorité.";
+    let priority = "No obvious priority.";
+    if (fierceReduction < 35 && finalBlockValue < state.physicalHit * 0.08) {
+      priority = "Increase block value first.";
     } else if (fierceReduction < 35) {
-      priority = "Monte ta mitigation physique pour mieux tenir les Fierce Blows.";
+      priority = "Improve physical mitigation against burst.";
     } else if (physicalReduction < 50) {
-      priority = "Monte l’armor, la DR physique ou la DR globale.";
+      priority = "Improve armor, physical DR, or global DR.";
     } else if (magicalReduction < 20) {
-      priority = "Monte la mitigation magique.";
+      priority = "Improve magical survival.";
     }
-
-    const compare: CompareItem[] = [
-      { label: "+500 armor", physGain: 1.5, magicGain: 0, fierceGain: 0.8, totalGain: 2.3 },
-      { label: "+2% DR globale", physGain: 2, magicGain: 2, fierceGain: 2, totalGain: 6 },
-      { label: "+100 block value", physGain: 2.4, magicGain: 0, fierceGain: 1.4, totalGain: 3.8 },
-    ];
 
     return {
       tankProfile,
@@ -311,34 +358,8 @@ export default function CalculatorPage() {
       magicalAverage,
       fierceAverage,
       fierceWorst,
-      compare,
     };
-  }, [
-    hp,
-    armor,
-    dodge,
-    parry,
-    blockChance,
-    blockValue,
-    basePhysicalDr,
-    baseGlobalDr,
-    baseMagicDr,
-    absorb,
-    physicalHit,
-    magicalHit,
-    fierceBlow,
-    fierceBlockEfficiency,
-    fierceAbsorbEfficiency,
-    defensiveStance,
-    bearForm,
-    righteousFury,
-    manaForgedBarrier,
-    shieldWall,
-    barkskin,
-    carnageIncarnate,
-    relentless,
-    crimsonChampion,
-  ]);
+  }, [state, toggles]);
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
@@ -352,72 +373,89 @@ export default function CalculatorPage() {
   };
 
   const cardStyle: React.CSSProperties = {
-    background: "rgba(30, 41, 59, 0.92)",
+    background: "rgba(15, 23, 42, 0.72)",
     border: "1px solid rgba(148, 163, 184, 0.15)",
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 20,
-    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+    boxShadow: "0 12px 34px rgba(0,0,0,0.25)",
   };
 
   const buttonStyle: React.CSSProperties = {
-    background: "#1d4ed8",
+    background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
     color: "white",
     border: "none",
-    borderRadius: 10,
+    borderRadius: 12,
     padding: "10px 14px",
     cursor: "pointer",
+    fontWeight: 600,
   };
 
-  const toggleRow = (
-    label: string,
-    checked: boolean,
-    onChange: (v: boolean) => void
-  ) => (
-    <label
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        background: "rgba(51,65,85,0.55)",
-        padding: 12,
-        borderRadius: 10,
-      }}
-    >
-      <span>{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-    </label>
-  );
+  const sectionTitleStyle: React.CSSProperties = {
+    marginTop: 0,
+    marginBottom: 14,
+    fontSize: 18,
+  };
+
+  const labelStyle: React.CSSProperties = {
+    color: "#cbd5e1",
+    fontSize: 14,
+  };
+
+  const groupedToggles = {
+    stances: TOGGLES.filter((x) => x.category === "stances"),
+    cooldowns: TOGGLES.filter((x) => x.category === "cooldowns"),
+    mystics: TOGGLES.filter((x) => x.category === "mystics"),
+  };
 
   return (
     <main
       style={{
         minHeight: "100vh",
         background:
-          "radial-gradient(circle at top right, rgba(59,130,246,0.15), transparent 20%), radial-gradient(circle at bottom left, rgba(168,85,247,0.12), transparent 20%), #020617",
+          "radial-gradient(circle at top right, rgba(59,130,246,0.16), transparent 18%), radial-gradient(circle at bottom left, rgba(168,85,247,0.12), transparent 18%), #020617",
         color: "white",
         fontFamily: "Arial, sans-serif",
         padding: 32,
       }}
     >
       <div style={{ maxWidth: 1320, margin: "0 auto", display: "grid", gap: 24 }}>
-        <section style={cardStyle}>
-          <h1 style={{ marginTop: 0 }}>Calculateur tank</h1>
-          <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>
-            Une version plus lisible du calculateur, avec presets simples, couches
-            défensives séparées, et une base prête à accueillir davantage de
-            données spécifiques à Ascension.
+        <section
+          style={{
+            ...cardStyle,
+            background:
+              "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9))",
+            padding: 28,
+          }}
+        >
+          <div
+            style={{
+              display: "inline-block",
+              fontSize: 12,
+              color: "#cbd5e1",
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.2)",
+              marginBottom: 16,
+            }}
+          >
+            Calculator — V11
+          </div>
+
+          <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.05 }}>
+            Cleaner structure, better readability, stronger foundation.
+          </h1>
+
+          <p style={{ color: "#94a3b8", lineHeight: 1.7, fontSize: 17, maxWidth: 900, marginTop: 14 }}>
+            This version focuses on maintainability and clarity: cleaner toggle groups,
+            internal preset data, better visual hierarchy, and a more polished calculator
+            without adding fragile complexity.
           </p>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-            <button style={buttonStyle} onClick={() => applyPreset("block")}>Preset Block</button>
-            <button style={buttonStyle} onClick={() => applyPreset("bear")}>Preset Bear</button>
-            <button style={buttonStyle} onClick={() => applyPreset("parry")}>Preset Parry</button>
-            <button style={buttonStyle} onClick={() => applyPreset("mana")}>Preset Mana</button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
+            <button style={buttonStyle} onClick={() => applyPreset("block")}>Block Tank</button>
+            <button style={buttonStyle} onClick={() => applyPreset("bear")}>Bear / EHP Tank</button>
+            <button style={buttonStyle} onClick={() => applyPreset("parry")}>Parry Tank</button>
+            <button style={buttonStyle} onClick={() => applyPreset("mana")}>Mana / Absorb Tank</button>
           </div>
         </section>
 
@@ -430,83 +468,167 @@ export default function CalculatorPage() {
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Base du personnage</h2>
+              <h2 style={sectionTitleStyle}>Core Stats</h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <div><label>HP</label><input style={inputStyle} type="number" value={hp} onChange={(e) => setHp(Number(e.target.value))} /></div>
-                <div><label>Armor</label><input style={inputStyle} type="number" value={armor} onChange={(e) => setArmor(Number(e.target.value))} /></div>
-                <div><label>Dodge %</label><input style={inputStyle} type="number" value={dodge} onChange={(e) => setDodge(Number(e.target.value))} /></div>
-                <div><label>Parry %</label><input style={inputStyle} type="number" value={parry} onChange={(e) => setParry(Number(e.target.value))} /></div>
-                <div><label>Block %</label><input style={inputStyle} type="number" value={blockChance} onChange={(e) => setBlockChance(Number(e.target.value))} /></div>
-                <div><label>Block Value</label><input style={inputStyle} type="number" value={blockValue} onChange={(e) => setBlockValue(Number(e.target.value))} /></div>
-                <div><label>Physical DR %</label><input style={inputStyle} type="number" value={basePhysicalDr} onChange={(e) => setBasePhysicalDr(Number(e.target.value))} /></div>
-                <div><label>Global DR %</label><input style={inputStyle} type="number" value={baseGlobalDr} onChange={(e) => setBaseGlobalDr(Number(e.target.value))} /></div>
-                <div><label>Magic DR %</label><input style={inputStyle} type="number" value={baseMagicDr} onChange={(e) => setBaseMagicDr(Number(e.target.value))} /></div>
-                <div><label>Absorb</label><input style={inputStyle} type="number" value={absorb} onChange={(e) => setAbsorb(Number(e.target.value))} /></div>
+                {[
+                  ["HP", "hp"],
+                  ["Armor", "armor"],
+                  ["Dodge %", "dodge"],
+                  ["Parry %", "parry"],
+                  ["Block %", "blockChance"],
+                  ["Block Value", "blockValue"],
+                  ["Physical DR %", "basePhysicalDr"],
+                  ["Global DR %", "baseGlobalDr"],
+                  ["Magic DR %", "baseMagicDr"],
+                  ["Absorb", "absorb"],
+                ].map(([label, key]) => (
+                  <div key={key}>
+                    <label style={labelStyle}>{label}</label>
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      value={state[key as keyof CalcState] as number}
+                      onChange={(e) =>
+                        updateField(key as keyof CalcState, Number(e.target.value))
+                      }
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Stances / forms / cooldowns</h2>
-              <div style={{ display: "grid", gap: 10 }}>
-                {toggleRow("Defensive Stance", defensiveStance, setDefensiveStance)}
-                {toggleRow("Bear Form", bearForm, setBearForm)}
-                {toggleRow("Righteous Fury", righteousFury, setRighteousFury)}
-                {toggleRow("Mana-Forged Barrier", manaForgedBarrier, setManaForgedBarrier)}
-                {toggleRow("Shield Wall", shieldWall, setShieldWall)}
-                {toggleRow("Barkskin", barkskin, setBarkskin)}
+              <h2 style={sectionTitleStyle}>Simulation</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {[
+                  ["Physical Hit", "physicalHit"],
+                  ["Magical Hit", "magicalHit"],
+                  ["Fierce Blow", "fierceBlow"],
+                  ["Fierce Block Efficiency %", "fierceBlockEfficiency"],
+                  ["Fierce Absorb Efficiency %", "fierceAbsorbEfficiency"],
+                ].map(([label, key]) => (
+                  <div key={key}>
+                    <label style={labelStyle}>{label}</label>
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      value={state[key as keyof CalcState] as number}
+                      onChange={(e) =>
+                        updateField(key as keyof CalcState, Number(e.target.value))
+                      }
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Mystiques clés</h2>
+              <h2 style={sectionTitleStyle}>Stances / Forms</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                {toggleRow("Carnage Incarnate", carnageIncarnate, setCarnageIncarnate)}
-                {toggleRow("Relentless", relentless, setRelentless)}
-                {toggleRow("Crimson Champion", crimsonChampion, setCrimsonChampion)}
+                {groupedToggles.stances.map((item) => (
+                  <label
+                    key={item.key}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: "rgba(51,65,85,0.55)",
+                      padding: 12,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={toggles[item.key]}
+                      onChange={(e) => updateToggle(item.key, e.target.checked)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Cooldowns</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                {groupedToggles.cooldowns.map((item) => (
+                  <label
+                    key={item.key}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: "rgba(51,65,85,0.55)",
+                      padding: 12,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={toggles[item.key]}
+                      onChange={(e) => updateToggle(item.key, e.target.checked)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Mystics</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                {groupedToggles.mystics.map((item) => (
+                  <label
+                    key={item.key}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      background: "rgba(51,65,85,0.55)",
+                      padding: 12,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={toggles[item.key]}
+                      onChange={(e) => updateToggle(item.key, e.target.checked)}
+                    />
+                  </label>
+                ))}
               </div>
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={cardStyle}>
-              <div style={{ color: "#94a3b8", fontSize: 13 }}>Profil détecté</div>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>Detected Profile</div>
               <div style={{ fontSize: 34, fontWeight: 700, marginTop: 6 }}>
                 {calc.tankProfile}
               </div>
-              <div style={{ marginTop: 12 }}>
-                Priorité : <strong>{calc.priority}</strong>
+              <div style={{ marginTop: 12, color: "#cbd5e1" }}>
+                Current Priority: <strong>{calc.priority}</strong>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Couches défensives</h2>
+              <h2 style={sectionTitleStyle}>Defensive Layers</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                <div>Armor DR : <strong>{calc.armorDr.toFixed(1)}%</strong></div>
-                <div>Physical DR : <strong>{calc.physicalDr.toFixed(1)}%</strong></div>
-                <div>Global DR : <strong>{calc.globalDr.toFixed(1)}%</strong></div>
-                <div>Magic DR : <strong>{calc.magicDr.toFixed(1)}%</strong></div>
-                <div>Block chance finale : <strong>{calc.finalBlockChance.toFixed(1)}%</strong></div>
-                <div>Block value finale : <strong>{Math.round(calc.finalBlockValue).toLocaleString()}</strong></div>
-                <div>Absorb final : <strong>{Math.round(calc.finalAbsorb).toLocaleString()}</strong></div>
+                <div>Armor DR: <strong>{calc.armorDr.toFixed(1)}%</strong></div>
+                <div>Physical DR: <strong>{calc.physicalDr.toFixed(1)}%</strong></div>
+                <div>Global DR: <strong>{calc.globalDr.toFixed(1)}%</strong></div>
+                <div>Magic DR: <strong>{calc.magicDr.toFixed(1)}%</strong></div>
+                <div>Final Block Chance: <strong>{calc.finalBlockChance.toFixed(1)}%</strong></div>
+                <div>Final Block Value: <strong>{Math.round(calc.finalBlockValue).toLocaleString()}</strong></div>
+                <div>Final Absorb: <strong>{Math.round(calc.finalAbsorb).toLocaleString()}</strong></div>
               </div>
             </div>
 
             {[
-              {
-                label: "Mitigation physique",
-                value: calc.physicalReduction,
-                type: "physical" as const,
-              },
-              {
-                label: "Mitigation magique",
-                value: calc.magicalReduction,
-                type: "magic" as const,
-              },
-              {
-                label: "Fierce Blow",
-                value: calc.fierceReduction,
-                type: "fierce" as const,
-              },
+              { label: "Physical Mitigation", value: calc.physicalReduction, type: "physical" as const },
+              { label: "Magical Mitigation", value: calc.magicalReduction, type: "magic" as const },
+              { label: "Fierce Blow", value: calc.fierceReduction, type: "fierce" as const },
             ].map((item) => (
               <div key={item.label} style={cardStyle}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -525,7 +647,7 @@ export default function CalculatorPage() {
                     style={{
                       width: `${item.value}%`,
                       height: "100%",
-                      background: barColor(item.type),
+                      background: barGradient(item.type),
                       borderRadius: 999,
                     }}
                   />
@@ -534,44 +656,13 @@ export default function CalculatorPage() {
             ))}
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Comparaison rapide</h2>
+              <h2 style={sectionTitleStyle}>Average / Worst Case</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                {calc.compare.map((c, i) => (
-                  <div
-                    key={c.label}
-                    style={{
-                      background:
-                        i === 0
-                          ? "linear-gradient(90deg, rgba(37,99,235,0.35), rgba(59,130,246,0.18))"
-                          : "rgba(51,65,85,0.8)",
-                      padding: 12,
-                      borderRadius: 10,
-                    }}
-                  >
-                    <strong>{c.label}</strong>
-                    <div style={{ marginTop: 6, color: "#cbd5e1" }}>
-                      Physique: +{c.physGain.toFixed(2)}%
-                    </div>
-                    <div style={{ color: "#cbd5e1" }}>
-                      Magique: +{c.magicGain.toFixed(2)}%
-                    </div>
-                    <div style={{ color: "#cbd5e1" }}>
-                      Fierce Blow: +{c.fierceGain.toFixed(2)}%
-                      {i === 0 ? " ⭐" : ""}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Résumé des hits</h2>
-              <div style={{ display: "grid", gap: 10 }}>
-                <div>Hit physique moyen : <strong>{Math.round(calc.physicalAverage).toLocaleString()}</strong></div>
-                <div>Worst case physique : <strong>{Math.round(calc.physicalWorst).toLocaleString()}</strong></div>
-                <div>Hit magique moyen : <strong>{Math.round(calc.magicalAverage).toLocaleString()}</strong></div>
-                <div>Fierce Blow moyen : <strong>{Math.round(calc.fierceAverage).toLocaleString()}</strong></div>
-                <div>Worst case Fierce Blow : <strong>{Math.round(calc.fierceWorst).toLocaleString()}</strong></div>
+                <div>Average Physical Hit: <strong>{Math.round(calc.physicalAverage).toLocaleString()}</strong></div>
+                <div>Worst Physical Hit: <strong>{Math.round(calc.physicalWorst).toLocaleString()}</strong></div>
+                <div>Average Magical Hit: <strong>{Math.round(calc.magicalAverage).toLocaleString()}</strong></div>
+                <div>Average Fierce Blow: <strong>{Math.round(calc.fierceAverage).toLocaleString()}</strong></div>
+                <div>Worst Fierce Blow: <strong>{Math.round(calc.fierceWorst).toLocaleString()}</strong></div>
               </div>
             </div>
           </div>
