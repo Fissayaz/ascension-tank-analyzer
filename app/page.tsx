@@ -10,11 +10,19 @@ function armorReductionPct(armor: number, k = 4000) {
   return (armor / (armor + k)) * 100;
 }
 
-function barColor(value: number, type: "physical" | "magic" | "fierce") {
+function barColor(type: "physical" | "magic" | "fierce") {
   if (type === "physical") return "linear-gradient(90deg, #38bdf8, #2563eb)";
   if (type === "magic") return "linear-gradient(90deg, #a78bfa, #7c3aed)";
   return "linear-gradient(90deg, #fb7185, #dc2626)";
 }
+
+type CompareItem = {
+  label: string;
+  physGain: number;
+  magicGain: number;
+  fierceGain: number;
+  totalGain: number;
+};
 
 export default function Page() {
   const [hp, setHp] = useState(10000);
@@ -84,67 +92,159 @@ export default function Page() {
     );
 
     const ehp = hp / Math.max(0.01, 1 - ((armorDr + globalDr) / 100));
-    const fierceSurvivable = Math.max(1, Math.floor(hp / Math.max(1, fierceWorst)));
+    const fierceSurvivable = Math.max(
+      1,
+      Math.floor(hp / Math.max(1, fierceWorst))
+    );
 
-    const diagnosis: string[] = [];
-    if (avoidance < 20) diagnosis.push("Avoidance faible.");
-    if (physicalReduction < 50) diagnosis.push("Mitigation physique insuffisante.");
-    if (magicalReduction < 20) diagnosis.push("Mitigation magique faible.");
-    if (blockChance >= 20 && blockValue < physicalHit * 0.08) {
-      diagnosis.push("Tu as du block chance, mais pas assez de block value.");
+    let tankProfile = "Hybrid Tank";
+    if (blockChance >= 22 && blockValue >= physicalHit * 0.08) {
+      tankProfile = "Block Tank";
+    } else if (parry >= dodge + 5) {
+      tankProfile = "Parry Tank";
+    } else if (hp >= 14000 && armor >= 15000) {
+      tankProfile = "Bear / EHP Tank";
+    } else if (avoidance >= 30 && hp < 12000) {
+      tankProfile = "Avoidance Tank";
     }
-    if (fierceReduction < 35) diagnosis.push("Fierce Blow très dangereux.");
-    if (ehp < 20000) diagnosis.push("EHP trop faible pour un profil tank solide.");
-    if (diagnosis.length === 0) diagnosis.push("Profil assez équilibré.");
 
-    const compare = [
-      {
-        label: "+500 armor",
-        physGain:
-          ((1 -
-            Math.max(
-              0,
-              (physicalHit *
-                (1 - armorReductionPct(armor + 500) / 100) *
-                (1 - globalDr / 100) -
-                averageBlockReduction -
-                absorb) /
-                Math.max(1, physicalHit)
-            )) *
-            100) -
-          physicalReduction,
-      },
-      {
-        label: "+2% DR",
-        physGain:
-          ((1 -
-            Math.max(
-              0,
-              (physicalHit *
-                (1 - armorDr / 100) *
-                (1 - (globalDr + 2) / 100) -
-                averageBlockReduction -
-                absorb) /
-                Math.max(1, physicalHit)
-            )) *
-            100) -
-          physicalReduction,
-      },
+    const criticalProblems: string[] = [];
+    const importantProblems: string[] = [];
+    const secondaryProblems: string[] = [];
+
+    if (fierceReduction < 35) {
+      criticalProblems.push("Fierce Blow très dangereux.");
+    }
+
+    if (physicalReduction < 50) {
+      importantProblems.push("Mitigation physique insuffisante.");
+    }
+
+    if (magicalReduction < 20) {
+      importantProblems.push("Mitigation magique faible.");
+    }
+
+    if (blockChance >= 20 && blockValue < physicalHit * 0.08) {
+      importantProblems.push("Tu as du block chance, mais pas assez de block value.");
+    }
+
+    if (avoidance < 20) {
+      secondaryProblems.push("Avoidance faible.");
+    }
+
+    if (ehp < 20000) {
+      secondaryProblems.push("EHP trop faible pour un profil tank solide.");
+    }
+
+    if (
+      criticalProblems.length === 0 &&
+      importantProblems.length === 0 &&
+      secondaryProblems.length === 0
+    ) {
+      secondaryProblems.push("Profil assez équilibré.");
+    }
+
+    let priority = "Aucune priorité évidente.";
+    if (fierceReduction < 35 && blockValue < physicalHit * 0.08) {
+      priority = "Monte la block value en priorité.";
+    } else if (fierceReduction < 35) {
+      priority = "Monte ta mitigation physique pour mieux tenir les Fierce Blows.";
+    } else if (physicalReduction < 50) {
+      priority = "Monte l’armor ou la DR globale.";
+    } else if (magicalReduction < 20) {
+      priority = "Monte la mitigation magique.";
+    } else if (avoidance < 20) {
+      priority = "Ajoute dodge/parry si ton build le permet.";
+    }
+
+    function simulateVariant(variant: {
+      armor?: number;
+      globalDr?: number;
+      blockValue?: number;
+      blockChance?: number;
+      parry?: number;
+    }) {
+      const nextArmor = armor + (variant.armor ?? 0);
+      const nextGlobalDr = globalDr + (variant.globalDr ?? 0);
+      const nextBlockValue = blockValue + (variant.blockValue ?? 0);
+      const nextBlockChance = blockChance + (variant.blockChance ?? 0);
+      const nextParry = parry + (variant.parry ?? 0);
+
+      const nextArmorDr = armorReductionPct(nextArmor);
+
+      const nextPhysicalAfterArmor = physicalHit * (1 - nextArmorDr / 100);
+      const nextPhysicalAfterDr =
+        nextPhysicalAfterArmor * (1 - nextGlobalDr / 100);
+      const nextAverageBlockReduction =
+        Math.min(nextBlockValue, nextPhysicalAfterDr) * (nextBlockChance / 100);
+      const nextPhysicalAverage = Math.max(
+        0,
+        nextPhysicalAfterDr - nextAverageBlockReduction - absorb
+      );
+      const nextPhysicalReduction = clamp(
+        (1 - nextPhysicalAverage / Math.max(1, physicalHit)) * 100,
+        0,
+        99
+      );
+
+      const nextMagicalAfterDr =
+        magicalHit * (1 - magicDr / 100) * (1 - nextGlobalDr / 100);
+      const nextMagicalAverage = Math.max(0, nextMagicalAfterDr - absorb);
+      const nextMagicalReduction = clamp(
+        (1 - nextMagicalAverage / Math.max(1, magicalHit)) * 100,
+        0,
+        99
+      );
+
+      const nextFierceAfterArmor = fierceBlow * (1 - nextArmorDr / 100);
+      const nextFierceAfterDr =
+        nextFierceAfterArmor * (1 - nextGlobalDr / 100);
+      const nextFierceBlockValue =
+        nextBlockValue * (fierceBlockEfficiency / 100);
+      const nextFierceAverageBlockReduction =
+        Math.min(nextFierceBlockValue, nextFierceAfterDr) *
+        (nextBlockChance / 100);
+      const nextFierceAverage = Math.max(
+        0,
+        nextFierceAfterDr -
+          nextFierceAverageBlockReduction -
+          absorb * (fierceAbsorbEfficiency / 100)
+      );
+      const nextFierceReduction = clamp(
+        (1 - nextFierceAverage / Math.max(1, fierceBlow)) * 100,
+        0,
+        99
+      );
+
+      const nextAvoidance = clamp(dodge + nextParry, 0, 100);
+
+      return {
+        physGain: nextPhysicalReduction - physicalReduction,
+        magicGain: nextMagicalReduction - magicalReduction,
+        fierceGain: nextFierceReduction - fierceReduction,
+        avoidanceGain: nextAvoidance - avoidance,
+      };
+    }
+
+    const compare: CompareItem[] = [
+      { label: "+500 armor", ...simulateVariant({ armor: 500 }), totalGain: 0 },
+      { label: "+2% DR", ...simulateVariant({ globalDr: 2 }), totalGain: 0 },
       {
         label: "+100 block value",
-        physGain:
-          ((1 -
-            Math.max(
-              0,
-              (physicalAfterDr -
-                Math.min(blockValue + 100, physicalAfterDr) * (blockChance / 100) -
-                absorb) /
-                Math.max(1, physicalHit)
-            )) *
-            100) -
-          physicalReduction,
+        ...simulateVariant({ blockValue: 100 }),
+        totalGain: 0,
       },
-    ].sort((a, b) => b.physGain - a.physGain);
+      {
+        label: "+3% block chance",
+        ...simulateVariant({ blockChance: 3 }),
+        totalGain: 0,
+      },
+      { label: "+5% parry", ...simulateVariant({ parry: 5 }), totalGain: 0 },
+    ].map((x) => ({
+      ...x,
+      totalGain: x.physGain + x.magicGain + x.fierceGain,
+    }))
+      .sort((a, b) => b.totalGain - a.totalGain);
 
     return {
       avoidance,
@@ -159,7 +259,11 @@ export default function Page() {
       fierceReduction,
       ehp,
       fierceSurvivable,
-      diagnosis,
+      tankProfile,
+      criticalProblems,
+      importantProblems,
+      secondaryProblems,
+      priority,
       compare,
     };
   }, [
@@ -198,10 +302,29 @@ export default function Page() {
     boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
   };
 
-  const statCardStyle: React.CSSProperties = {
-    ...cardStyle,
-    padding: 18,
-  };
+  const problemBox = (
+    title: string,
+    items: string[],
+    color: string
+  ) => (
+    <div style={{ ...cardStyle, borderLeft: `4px solid ${color}` }}>
+      <h3 style={{ marginTop: 0 }}>{title}</h3>
+      <div style={{ display: "grid", gap: 10 }}>
+        {items.map((item) => (
+          <div
+            key={item}
+            style={{
+              background: "rgba(51,65,85,0.8)",
+              padding: 12,
+              borderRadius: 10,
+            }}
+          >
+            {item}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <main
@@ -235,11 +358,11 @@ export default function Page() {
               marginBottom: 16,
             }}
           >
-            Ascension Tank Analyzer — V4
+            Ascension Tank Analyzer — V5 avancée
           </div>
 
           <h1 style={{ fontSize: 40, margin: 0, lineHeight: 1.05 }}>
-            Un analyseur tank plus lisible, plus stylé, plus utile.
+            Un vrai assistant tank, pas juste un calculateur.
           </h1>
 
           <p
@@ -251,9 +374,9 @@ export default function Page() {
               lineHeight: 1.6,
             }}
           >
-            Entre tes stats visibles, simule un hit physique, un hit magique et un
-            Fierce Blow, puis lis instantanément où ton tank est fort, où il est
-            fragile, et quelle amélioration te donnerait le plus de valeur.
+            Cette version te donne un profil de tank, une hiérarchie de problèmes,
+            une priorité d’amélioration et une comparaison rapide des upgrades qui
+            t’apportent le plus.
           </p>
         </section>
 
@@ -347,41 +470,13 @@ export default function Page() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 14,
-              }}
-            >
-              <div style={statCardStyle}>
-                <div style={{ color: "#94a3b8", fontSize: 13 }}>Avoidance</div>
-                <div style={{ fontSize: 34, fontWeight: 700, marginTop: 6 }}>
-                  {calc.avoidance.toFixed(1)}%
-                </div>
+            <div style={cardStyle}>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>Profil détecté</div>
+              <div style={{ fontSize: 34, fontWeight: 700, marginTop: 6 }}>
+                {calc.tankProfile}
               </div>
-
-              <div style={statCardStyle}>
-                <div style={{ color: "#94a3b8", fontSize: 13 }}>Armor DR</div>
-                <div style={{ fontSize: 34, fontWeight: 700, marginTop: 6 }}>
-                  {calc.armorDr.toFixed(1)}%
-                </div>
-              </div>
-
-              <div style={statCardStyle}>
-                <div style={{ color: "#94a3b8", fontSize: 13 }}>EHP</div>
-                <div style={{ fontSize: 34, fontWeight: 700, marginTop: 6 }}>
-                  {Math.round(calc.ehp).toLocaleString()}
-                </div>
-              </div>
-
-              <div style={statCardStyle}>
-                <div style={{ color: "#94a3b8", fontSize: 13 }}>
-                  FB survivables
-                </div>
-                <div style={{ fontSize: 34, fontWeight: 700, marginTop: 6 }}>
-                  {calc.fierceSurvivable}
-                </div>
+              <div style={{ marginTop: 14, color: "#cbd5e1" }}>
+                Priorité actuelle : <strong>{calc.priority}</strong>
               </div>
             </div>
 
@@ -429,7 +524,7 @@ export default function Page() {
                       style={{
                         width: `${item.value}%`,
                         height: "100%",
-                        background: barColor(item.value, item.type),
+                        background: barColor(item.type),
                         borderRadius: 999,
                       }}
                     />
@@ -438,24 +533,9 @@ export default function Page() {
               ))}
             </div>
 
-            <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Diagnostic</h2>
-              <div style={{ display: "grid", gap: 10 }}>
-                {calc.diagnosis.map((d) => (
-                  <div
-                    key={d}
-                    style={{
-                      background: "rgba(51,65,85,0.8)",
-                      padding: 12,
-                      borderRadius: 10,
-                      borderLeft: "4px solid #f59e0b",
-                    }}
-                  >
-                    {d}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {problemBox("❌ Problèmes critiques", calc.criticalProblems, "#ef4444")}
+            {problemBox("⚠️ Problèmes importants", calc.importantProblems, "#f59e0b")}
+            {problemBox("🟡 Problèmes secondaires", calc.secondaryProblems, "#eab308")}
 
             <div style={cardStyle}>
               <h2 style={{ marginTop: 0 }}>Comparaison rapide</h2>
@@ -478,8 +558,13 @@ export default function Page() {
                   >
                     <strong>{c.label}</strong>
                     <div style={{ marginTop: 6, color: "#cbd5e1" }}>
-                      Gain physique : {c.physGain >= 0 ? "+" : ""}
-                      {c.physGain.toFixed(2)}%
+                      Physique: {c.physGain >= 0 ? "+" : ""}{c.physGain.toFixed(2)}%
+                    </div>
+                    <div style={{ color: "#cbd5e1" }}>
+                      Magique: {c.magicGain >= 0 ? "+" : ""}{c.magicGain.toFixed(2)}%
+                    </div>
+                    <div style={{ color: "#cbd5e1" }}>
+                      Fierce Blow: {c.fierceGain >= 0 ? "+" : ""}{c.fierceGain.toFixed(2)}%
                       {i === 0 ? " ⭐ meilleur choix actuel" : ""}
                     </div>
                   </div>
@@ -488,12 +573,13 @@ export default function Page() {
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Détails hits</h2>
+              <h2 style={{ marginTop: 0 }}>Résumé chiffré</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                <div>Hit physique moyen : <strong>{Math.round(calc.physicalAverage).toLocaleString()}</strong></div>
+                <div>Avoidance : <strong>{calc.avoidance.toFixed(1)}%</strong></div>
+                <div>Armor DR : <strong>{calc.armorDr.toFixed(1)}%</strong></div>
+                <div>EHP : <strong>{Math.round(calc.ehp).toLocaleString()}</strong></div>
+                <div>Fierce Blows survivables : <strong>{calc.fierceSurvivable}</strong></div>
                 <div>Worst case physique : <strong>{Math.round(calc.physicalWorst).toLocaleString()}</strong></div>
-                <div>Hit magique moyen : <strong>{Math.round(calc.magicalAverage).toLocaleString()}</strong></div>
-                <div>Fierce Blow moyen : <strong>{Math.round(calc.fierceAverage).toLocaleString()}</strong></div>
                 <div>Worst case Fierce Blow : <strong>{Math.round(calc.fierceWorst).toLocaleString()}</strong></div>
               </div>
             </div>
