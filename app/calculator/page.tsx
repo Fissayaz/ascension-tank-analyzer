@@ -6,245 +6,537 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-// Vanilla-like approximation (à valider ensuite avec tes logs)
-function armorDR(armor: number) {
-  const K = 4000;
-  return (armor / (armor + K)) * 100;
+// Working approximation for Ascension burst calculations.
+// White swing coverage uses the validated macro-style CTC logic.
+// Burst math remains adjustable as more logs are collected.
+function armorReductionPct(armor: number, k = 4000) {
+  return (armor / (armor + k)) * 100;
 }
 
+type CalculatorState = {
+  hp: number;
+  armor: number;
+  defenseBonus: number;
+  dodge: number;
+  parry: number;
+  block: number;
+  blockValue: number;
+  physicalDR: number;
+  globalDR: number;
+  magicDR: number;
+  absorb: number;
+
+  whiteHit: number;
+  fierceBlow: number;
+  magicHit: number;
+
+  fierceBlockEfficiency: number;
+  fierceAbsorbEfficiency: number;
+};
+
+const DEFAULT_STATE: CalculatorState = {
+  hp: 12000,
+  armor: 18000,
+  defenseBonus: 228,
+  dodge: 20,
+  parry: 20,
+  block: 20,
+  blockValue: 500,
+  physicalDR: 0,
+  globalDR: 0,
+  magicDR: 0,
+  absorb: 0,
+
+  whiteHit: 4000,
+  fierceBlow: 9000,
+  magicHit: 5000,
+
+  fierceBlockEfficiency: 0,
+  fierceAbsorbEfficiency: 0,
+};
+
 export default function CalculatorPage() {
-  const [state, setState] = useState({
-    hp: 12000,
-    armor: 12000,
-    dodge: 10,
-    parry: 10,
-    block: 20,
-    blockValue: 300,
-    physicalDR: 0,
-    globalDR: 0,
-    magicDR: 0,
-    resist: 0,
-    absorb: 0,
+  const [state, setState] = useState<CalculatorState>(DEFAULT_STATE);
 
-    whiteHit: 6000,
-    fierceBlow: 9000,
-    magicHit: 5000,
-
-    fierceBlockEff: 50,
-    fierceAbsorbEff: 50,
-  });
-
-  function update(key: string, value: number) {
-    setState((prev) => ({ ...prev, [key]: value }));
+  function updateField<K extends keyof CalculatorState>(
+    key: K,
+    value: number
+  ) {
+    setState((prev) => ({
+      ...prev,
+      [key]: Number.isFinite(value) ? value : 0,
+    }));
   }
 
-  const calc = useMemo(() => {
-    const avoidance = state.dodge + state.parry + state.block;
-    const isCapped = avoidance >= 102.4;
+  const result = useMemo(() => {
+    const dodge = clamp(state.dodge, 0, 100);
+    const parry = clamp(state.parry, 0, 100);
+    const block = clamp(state.block, 0, 100);
 
-    const armorReduction = armorDR(state.armor);
+    const missFromDefense = 5 + state.defenseBonus * 0.04;
+    const totalCTC = dodge + parry + block + missFromDefense;
+    const ctcCapped = totalCTC >= 102.4;
 
-    // === PHYSICAL ===
-    const physAfterArmor =
-      state.whiteHit * (1 - armorReduction / 100);
+    const armorDR = armorReductionPct(Math.max(0, state.armor));
+    const physicalDR = clamp(state.physicalDR, 0, 95);
+    const globalDR = clamp(state.globalDR, 0, 95);
+    const magicDR = clamp(state.magicDR, 0, 95);
 
-    const physAfterPhysical =
-      physAfterArmor * (1 - state.physicalDR / 100);
+    // White swings
+    const whiteAfterArmor = state.whiteHit * (1 - armorDR / 100);
+    const whiteAfterPhysical = whiteAfterArmor * (1 - physicalDR / 100);
+    const whiteAfterGlobal = whiteAfterPhysical * (1 - globalDR / 100);
 
-    const physAfterGlobal =
-      physAfterPhysical * (1 - state.globalDR / 100);
-
-    const avgBlock =
-      Math.min(state.blockValue, physAfterGlobal) *
-      (state.block / 100);
-
-    const physicalAvg = Math.max(
+    const whiteBlocked = Math.max(
       0,
-      physAfterGlobal - avgBlock - state.absorb
+      whiteAfterGlobal - Math.min(state.blockValue, whiteAfterGlobal)
+    );
+    const whiteUnblocked = Math.max(0, whiteAfterGlobal);
+
+    const missChance = clamp(missFromDefense, 0, 100);
+    const dodgeChance = clamp(dodge, 0, 100);
+    const parryChance = clamp(parry, 0, 100);
+    const blockChance = clamp(block, 0, 100);
+
+    const whiteRemainingHitChance = Math.max(
+      0,
+      100 - (missChance + dodgeChance + parryChance + blockChance)
     );
 
-    const physicalWorst = Math.max(
+    const whiteAverageTaken = ctcCapped
+      ? 0
+      : Math.max(
+          0,
+          (whiteBlocked * blockChance + whiteUnblocked * whiteRemainingHitChance) /
+            100
+        );
+
+    const whiteWorstTaken = ctcCapped
+      ? 0
+      : Math.max(0, whiteUnblocked - state.absorb);
+
+    // Magic hit
+    const magicAfterMagic = state.magicHit * (1 - magicDR / 100);
+    const magicAfterGlobal = magicAfterMagic * (1 - globalDR / 100);
+    const magicFinal = Math.max(0, magicAfterGlobal - state.absorb);
+
+    // Fierce Blow
+    const fierceAfterArmor = state.fierceBlow * (1 - armorDR / 100);
+    const fierceAfterPhysical = fierceAfterArmor * (1 - physicalDR / 100);
+    const fierceAfterGlobal = fierceAfterPhysical * (1 - globalDR / 100);
+
+    const fierceBlockValue =
+      state.blockValue * (clamp(state.fierceBlockEfficiency, 0, 100) / 100);
+    const fierceAbsorbValue =
+      state.absorb * (clamp(state.fierceAbsorbEfficiency, 0, 100) / 100);
+
+    const fierceBlocked = Math.max(
       0,
-      physAfterGlobal - state.absorb
+      fierceAfterGlobal - Math.min(fierceBlockValue, fierceAfterGlobal)
     );
+    const fierceUnblocked = Math.max(0, fierceAfterGlobal - fierceAbsorbValue);
 
-    // === MAGIC ===
-    const magicAfter =
-      state.magicHit *
-      (1 - state.magicDR / 100) *
-      (1 - state.globalDR / 100);
-
-    const magicFinal = Math.max(
+    const fierceAverageTaken = Math.max(
       0,
-      magicAfter - state.absorb
+      (fierceBlocked * blockChance + fierceUnblocked * (100 - blockChance)) / 100
     );
+    const fierceWorstTaken = Math.max(0, fierceAfterGlobal - fierceAbsorbValue);
 
-    // === FIERCE BLOW ===
-    const fierceAfterArmor =
-      state.fierceBlow * (1 - armorReduction / 100);
+    // Diagnostics
+    const issues: string[] = [];
+    const recommendations: string[] = [];
 
-    const fierceAfterPhysical =
-      fierceAfterArmor * (1 - state.physicalDR / 100);
+    if (ctcCapped) {
+      issues.push("You are CTC-capped against white swings.");
+    } else {
+      issues.push("You are not CTC-capped against white swings.");
+      recommendations.push("Increase dodge, parry, block, or defense.");
+    }
 
-    const fierceAfterGlobal =
-      fierceAfterPhysical * (1 - state.globalDR / 100);
+    if (fierceWorstTaken > state.hp * 0.6) {
+      issues.push("Fierce Blow burst is dangerous.");
+      recommendations.push("Increase armor, DR, absorb, or health.");
+    }
 
-    const fbBlockValue =
-      state.blockValue * (state.fierceBlockEff / 100);
+    if (magicFinal > state.hp * 0.35) {
+      issues.push("Magic damage is still a serious weakness.");
+      recommendations.push("Increase magic DR, global DR, absorb, or health.");
+    }
 
-    const fbAbsorb =
-      state.absorb * (state.fierceAbsorbEff / 100);
+    if (!ctcCapped && whiteWorstTaken > state.hp * 0.2) {
+      issues.push("White swing damage is still meaningful when hits go through.");
+      recommendations.push("Reduce incoming white hit damage or finish CTC coverage.");
+    }
 
-    const fbAvgBlock =
-      Math.min(fbBlockValue, fierceAfterGlobal) *
-      (state.block / 100);
-
-    const fierceAvg = Math.max(
-      0,
-      fierceAfterGlobal - fbAvgBlock - fbAbsorb
-    );
-
-    const fierceWorst = Math.max(
-      0,
-      fierceAfterGlobal - fbAbsorb
-    );
-
-    // === DIAGNOSTIC ===
-    let issue = "Balanced";
-    let advice = "No major weakness detected.";
-
-    if (!isCapped) {
-      issue = "Avoidance not capped";
-      advice = "Increase dodge / parry / block.";
-    } else if (fierceAvg > state.hp * 0.6) {
-      issue = "Fierce Blow too high";
-      advice = "Increase block value or mitigation.";
-    } else if (physicalAvg > state.hp * 0.4) {
-      issue = "Weak vs physical";
-      advice = "Increase armor or DR.";
-    } else if (magicFinal > state.hp * 0.4) {
-      issue = "Weak vs magic";
-      advice = "Increase magic DR or resist.";
+    if (recommendations.length === 0) {
+      recommendations.push("No major weakness detected from current inputs.");
     }
 
     return {
-      avoidance,
-      isCapped,
-      armorReduction,
-      physicalAvg,
-      physicalWorst,
+      missFromDefense,
+      totalCTC,
+      ctcCapped,
+      armorDR,
+      whiteAverageTaken,
+      whiteWorstTaken,
+      whiteBlocked,
+      whiteUnblocked,
       magicFinal,
-      fierceAvg,
-      fierceWorst,
-      issue,
-      advice,
+      fierceAverageTaken,
+      fierceWorstTaken,
+      issues,
+      recommendations,
     };
   }, [state]);
 
+  const pageStyle: React.CSSProperties = {
+    minHeight: "100vh",
+    background:
+      "radial-gradient(circle at top right, rgba(59,130,246,0.14), transparent 18%), radial-gradient(circle at bottom left, rgba(168,85,247,0.10), transparent 18%), #020617",
+    color: "white",
+    padding: 32,
+    fontFamily: "Arial, sans-serif",
+  };
+
+  const shellStyle: React.CSSProperties = {
+    maxWidth: 1320,
+    margin: "0 auto",
+    display: "grid",
+    gap: 24,
+  };
+
+  const heroStyle: React.CSSProperties = {
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.88))",
+    border: "1px solid rgba(148,163,184,0.14)",
+    borderRadius: 24,
+    padding: 28,
+    boxShadow: "0 20px 50px rgba(0,0,0,0.28)",
+  };
+
+  const cardStyle: React.CSSProperties = {
+    background: "rgba(15, 23, 42, 0.78)",
+    border: "1px solid rgba(148, 163, 184, 0.14)",
+    borderRadius: 20,
+    padding: 20,
+    boxShadow: "0 12px 30px rgba(0,0,0,0.22)",
+  };
+
+  const sectionTitleStyle: React.CSSProperties = {
+    marginTop: 0,
+    marginBottom: 14,
+    fontSize: 18,
+  };
+
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    padding: 8,
-    marginTop: 4,
+    padding: 10,
+    marginTop: 6,
     background: "#0f172a",
-    color: "white",
     border: "1px solid #334155",
-    borderRadius: 8,
+    color: "white",
+    borderRadius: 10,
+    outline: "none",
   };
 
-  const card: React.CSSProperties = {
-    background: "#020617",
-    padding: 20,
-    borderRadius: 16,
-    border: "1px solid #1e293b",
+  const labelStyle: React.CSSProperties = {
+    fontSize: 14,
+    color: "#cbd5e1",
   };
 
-  return (
-    <main
+  const metricCard = (label: string, value: string, sub?: string) => (
+    <div
       style={{
-        minHeight: "100vh",
-        background: "#020617",
-        color: "white",
-        padding: 30,
+        background: "rgba(30,41,59,0.55)",
+        border: "1px solid rgba(148,163,184,0.12)",
+        borderRadius: 16,
+        padding: 16,
       }}
     >
-      <h1>Tank Analyzer V12</h1>
+      <div style={{ fontSize: 13, color: "#94a3b8" }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, marginTop: 6 }}>{value}</div>
+      {sub ? <div style={{ fontSize: 13, color: "#cbd5e1", marginTop: 6 }}>{sub}</div> : null}
+    </div>
+  );
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        <div style={card}>
-          <h2>Character Stats</h2>
-
-          {[
-            ["HP", "hp"],
-            ["Armor", "armor"],
-            ["Dodge %", "dodge"],
-            ["Parry %", "parry"],
-            ["Block %", "block"],
-            ["Block Value", "blockValue"],
-            ["Physical DR %", "physicalDR"],
-            ["Global DR %", "globalDR"],
-            ["Magic DR %", "magicDR"],
-            ["Absorb", "absorb"],
-          ].map(([label, key]) => (
-            <div key={key}>
-              <label>{label}</label>
-              <input
-                style={inputStyle}
-                type="number"
-                value={(state as any)[key]}
-                onChange={(e) =>
-                  update(key, Number(e.target.value))
-                }
-              />
-            </div>
-          ))}
-        </div>
-
-        <div style={card}>
-          <h2>Encounter</h2>
-
-          {[
-            ["White Hit", "whiteHit"],
-            ["Fierce Blow", "fierceBlow"],
-            ["Magic Hit", "magicHit"],
-            ["Fierce Block %", "fierceBlockEff"],
-            ["Fierce Absorb %", "fierceAbsorbEff"],
-          ].map(([label, key]) => (
-            <div key={key}>
-              <label>{label}</label>
-              <input
-                style={inputStyle}
-                type="number"
-                value={(state as any)[key]}
-                onChange={(e) =>
-                  update(key, Number(e.target.value))
-                }
-              />
-            </div>
-          ))}
-        </div>
+  const barBlock = (
+    label: string,
+    value: number,
+    color: string,
+    helper?: string
+  ) => (
+    <div style={cardStyle}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 8,
+          gap: 12,
+        }}
+      >
+        <span>{label}</span>
+        <strong>{value.toFixed(1)}%</strong>
       </div>
+      <div
+        style={{
+          height: 12,
+          background: "rgba(255,255,255,0.08)",
+          borderRadius: 999,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${clamp(value, 0, 100)}%`,
+            height: "100%",
+            background: color,
+            borderRadius: 999,
+          }}
+        />
+      </div>
+      {helper ? (
+        <div style={{ marginTop: 8, fontSize: 13, color: "#cbd5e1" }}>{helper}</div>
+      ) : null}
+    </div>
+  );
 
-      <div style={{ marginTop: 30, ...card }}>
-        <h2>Results</h2>
+  return (
+    <main style={pageStyle}>
+      <div style={shellStyle}>
+        <section style={heroStyle}>
+          <div
+            style={{
+              display: "inline-block",
+              fontSize: 12,
+              color: "#cbd5e1",
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.2)",
+              marginBottom: 16,
+            }}
+          >
+            Calculator — V12
+          </div>
 
-        <p>
-          Avoidance: {calc.avoidance.toFixed(1)}%{" "}
-          {calc.isCapped ? "✅ (102.4% reached)" : "❌"}
-        </p>
+          <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.05 }}>
+            White Swing CTC and Burst Survival, separated properly.
+          </h1>
 
-        <p>Armor DR: {calc.armorReduction.toFixed(1)}%</p>
+          <p
+            style={{
+              color: "#94a3b8",
+              lineHeight: 1.7,
+              fontSize: 17,
+              maxWidth: 940,
+              marginTop: 14,
+            }}
+          >
+            This calculator is intentionally focused on real in-game sheet values.
+            White swing coverage and Fierce Blow survival are treated as separate
+            problems, because being CTC-capped does not automatically make you safe
+            against burst.
+          </p>
+        </section>
 
-        <p>White Hit Avg: {Math.round(calc.physicalAvg)}</p>
-        <p>White Hit Worst: {Math.round(calc.physicalWorst)}</p>
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.05fr 0.95fr",
+            gap: 24,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Character Stats</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {[
+                  ["Health", "hp"],
+                  ["Armor", "armor"],
+                  ["Defense Bonus", "defenseBonus"],
+                  ["Dodge %", "dodge"],
+                  ["Parry %", "parry"],
+                  ["Block %", "block"],
+                  ["Block Value", "blockValue"],
+                  ["Physical DR %", "physicalDR"],
+                  ["Global DR %", "globalDR"],
+                  ["Magic DR %", "magicDR"],
+                  ["Absorb", "absorb"],
+                ].map(([label, key]) => (
+                  <div key={key}>
+                    <label style={labelStyle}>{label}</label>
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      value={state[key as keyof CalculatorState] as number}
+                      onChange={(e) =>
+                        updateField(
+                          key as keyof CalculatorState,
+                          Number(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <p>Magic Hit: {Math.round(calc.magicFinal)}</p>
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Encounter Inputs</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {[
+                  ["White Hit", "whiteHit"],
+                  ["Fierce Blow", "fierceBlow"],
+                  ["Magic Hit", "magicHit"],
+                  ["Fierce Block Efficiency %", "fierceBlockEfficiency"],
+                  ["Fierce Absorb Efficiency %", "fierceAbsorbEfficiency"],
+                ].map(([label, key]) => (
+                  <div key={key}>
+                    <label style={labelStyle}>{label}</label>
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      value={state[key as keyof CalculatorState] as number}
+                      onChange={(e) =>
+                        updateField(
+                          key as keyof CalculatorState,
+                          Number(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        <p>Fierce Blow Avg: {Math.round(calc.fierceAvg)}</p>
-        <p>Fierce Blow Worst: {Math.round(calc.fierceWorst)}</p>
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>How this version thinks</h2>
+              <div style={{ display: "grid", gap: 8, color: "#cbd5e1", lineHeight: 1.6 }}>
+                <div>
+                  <strong>White swings:</strong> handled through CTC logic using dodge,
+                  parry, block, base miss, and defense-derived miss.
+                </div>
+                <div>
+                  <strong>Fierce Blow:</strong> treated separately as burst, because logs
+                  show it is not protected by standard white-swing coverage.
+                </div>
+                <div>
+                  <strong>Absorb:</strong> treated as a later defensive layer, especially
+                  important for burst testing.
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <h3>Diagnosis</h3>
-        <p>{calc.issue}</p>
-        <p>{calc.advice}</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={cardStyle}>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>White Swing Coverage</div>
+              <div style={{ fontSize: 34, fontWeight: 700, marginTop: 6 }}>
+                {result.ctcCapped ? "CTC-Capped" : "Not CTC-Capped"}
+              </div>
+              <div style={{ marginTop: 12, color: "#cbd5e1" }}>
+                Total CTC: <strong>{result.totalCTC.toFixed(2)} / 102.4</strong>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 14,
+              }}
+            >
+              {metricCard(
+                "Miss from Defense",
+                `${result.missFromDefense.toFixed(2)}%`,
+                "Base miss + defense contribution"
+              )}
+              {metricCard(
+                "Armor DR",
+                `${result.armorDR.toFixed(1)}%`,
+                "Working burst approximation"
+              )}
+              {metricCard(
+                "White Avg Taken",
+                `${Math.round(result.whiteAverageTaken)}`,
+                result.ctcCapped ? "Expected to be zero for normal white swings" : "Average white-swing damage taken"
+              )}
+              {metricCard(
+                "White Worst Taken",
+                `${Math.round(result.whiteWorstTaken)}`,
+                result.ctcCapped ? "Expected to be zero for normal white swings" : "Worst unavoided white hit"
+              )}
+            </div>
+
+            {barBlock(
+              "CTC Progress",
+              (result.totalCTC / 102.4) * 100,
+              "linear-gradient(90deg, #22c55e, #16a34a)",
+              result.ctcCapped
+                ? "You are capped against standard white swings."
+                : "You still have white-swing coverage missing."
+            )}
+
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Burst Survival</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                <div>
+                  Average Fierce Blow Taken:{" "}
+                  <strong>{Math.round(result.fierceAverageTaken).toLocaleString()}</strong>
+                </div>
+                <div>
+                  Worst Fierce Blow Taken:{" "}
+                  <strong>{Math.round(result.fierceWorstTaken).toLocaleString()}</strong>
+                </div>
+                <div>
+                  Magic Hit Taken:{" "}
+                  <strong>{Math.round(result.magicFinal).toLocaleString()}</strong>
+                </div>
+              </div>
+            </div>
+
+            {barBlock(
+              "Burst vs Health",
+              (result.fierceWorstTaken / Math.max(1, state.hp)) * 100,
+              "linear-gradient(90deg, #fb7185, #dc2626)",
+              "Measures how much of your health one worst-case Fierce Blow consumes."
+            )}
+
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Diagnosis</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                {result.issues.map((issue) => (
+                  <div
+                    key={issue}
+                    style={{
+                      background: "rgba(51,65,85,0.55)",
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    {issue}
+                  </div>
+                ))}
+              </div>
+
+              <h3 style={{ marginTop: 18, marginBottom: 10 }}>Recommendations</h3>
+              <div style={{ display: "grid", gap: 10 }}>
+                {result.recommendations.map((rec) => (
+                  <div
+                    key={rec}
+                    style={{
+                      background: "rgba(30,41,59,0.55)",
+                      borderRadius: 12,
+                      padding: 12,
+                      color: "#cbd5e1",
+                    }}
+                  >
+                    {rec}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
