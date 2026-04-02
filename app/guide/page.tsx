@@ -20,83 +20,196 @@ export default function GuidePage() {
     >
       <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gap: 20 }}>
         <section style={cardStyle}>
-          <h1 style={{ marginTop: 0 }}>Guide du tanking</h1>
+          <h1 style={{ marginTop: 0 }}>Tanking Guide</h1>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            Cette page sert à poser les bases. Un tank solide ne repose jamais sur
-            un seul chiffre. Il faut raisonner en couches défensives, en scénarios
-            de dégâts, et en stabilité réelle contre les hits normaux comme contre
-            les bursts.
+            A strong tank is never defined by one number. Real survivability comes
+            from stacked defensive layers, how those layers interact, and how they
+            hold up against both average hits and burst events.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>1. Armor DR</h2>
+          <h2 style={{ marginTop: 0 }}>Armor DR</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            C’est la réduction apportée par l’armure seule. Elle est très
-            importante contre le physique, mais elle ne suffit pas à elle seule à
-            définir la qualité d’un tank.
+            Armor DR is the reduction provided by armor alone. It is a foundation
+            of physical tanking, but it should never be read as the whole story.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>2. Physical DR</h2>
+          <h2 style={{ marginTop: 0 }}>Physical DR</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            C’est la réduction physique hors armure. Elle complète Armor DR et peut
-            être très puissante pour tenir les hits lourds et certains bursts.
+            Physical DR is separate from armor. This is important, because some
+            builds are not really “armor builds” or “block builds” — they are
+            simply stacking another physical mitigation layer.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>3. Global DR</h2>
+          <h2 style={{ marginTop: 0 }}>Global DR</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            C’est une couche plus large, souvent très forte, car elle réduit
-            plusieurs types de dégâts. C’est souvent l’une des stats les plus
-            rentables quand ton build manque de stabilité générale.
+            Global DR is often one of the strongest layers in the game because it
+            improves survivability in multiple scenarios at once. If your build
+            feels unstable everywhere, this is often one of the first places to
+            look.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>4. Magic DR</h2>
+          <h2 style={{ marginTop: 0 }}>Magic DR</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            Un tank très solide contre le physique peut rester fragile contre le
-            magique. D’où l’intérêt de séparer clairement Magic DR dans le site.
+            Many tanks look good on physical damage and then collapse against magic.
+            That is why this site separates magical reads instead of hiding them
+            inside a broad average.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>5. Avoidance</h2>
+          <h2 style={{ marginTop: 0 }}>Block chance vs block value</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            Dodge et parry empêchent une partie des hits, mais n’aident pas quand
-            tu prends réellement le coup. Un build avoidance sans marge HP ou sans
-            mitigation stable peut se faire surprendre par le burst.
+            A common mistake is to stack block chance without enough block value.
+            That creates a build that sounds strong on paper but does not actually
+            cut enough damage off large hits.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>6. Block chance vs block value</h2>
+          <h2 style={{ marginTop: 0 }}>Avoidance</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            Beaucoup de joueurs surinvestissent la block chance sans assez de block
-            value. Résultat : le build a l’air “block”, mais ne réduit pas assez
-            les gros hits.
+            Dodge and parry are powerful, but they are still “no-hit” mechanics.
+            If the hit lands, the rest of your build has to hold up. Avoidance-only
+            logic becomes dangerous when burst enters the picture.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>7. Absorb</h2>
+          <h2 style={{ marginTop: 0 }}>Absorb</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            L’absorb est excellent dans beaucoup de situations, surtout sur des
-            hits moyens ou répétés. Mais il ne faut pas le lire comme une solution
-            universelle à tous les bursts.
+            Absorb can be excellent against repeat damage and medium hits. But it
+            should not be treated as a universal answer to every burst problem.
           </p>
         </section>
 
         <section style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>8. EHP</h2>
+          <h2 style={{ marginTop: 0 }}>Decision-making, not just math</h2>
           <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
-            L’EHP donne une idée de ta marge brute contre certains dégâts. C’est
-            utile, mais ça ne remplace jamais une lecture du worst case et des
-            mécaniques de burst.
+            A good tank tool should not only say “you have X mitigation.” It should
+            also help answer:
           </p>
+          <ul style={{ color: "#cbd5e1", lineHeight: 1.8, paddingLeft: 18 }}>
+            <li>Am I weak to average physical hits or burst?</li>
+            <li>Is my block setup actually paying off?</li>
+            <li>Am I overinvested in avoidance?</li>
+            <li>Should I improve armor, DR, block value, or magical survival next?</li>
+          </ul>
+        </section>
+      </div>
+    </main>
+  );
+}const cardStyle: React.CSSProperties = {
+  background: "rgba(30, 41, 59, 0.92)",
+  border: "1px solid rgba(148, 163, 184, 0.15)",
+  borderRadius: 18,
+  padding: 20,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+};
+
+export default function GuidePage() {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top right, rgba(59,130,246,0.15), transparent 20%), radial-gradient(circle at bottom left, rgba(168,85,247,0.12), transparent 20%), #020617",
+        color: "white",
+        fontFamily: "Arial, sans-serif",
+        padding: 32,
+      }}
+    >
+      <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gap: 20 }}>
+        <section style={cardStyle}>
+          <h1 style={{ marginTop: 0 }}>Tanking Guide</h1>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            A strong tank is never defined by one number. Real survivability comes
+            from stacked defensive layers, how those layers interact, and how they
+            hold up against both average hits and burst events.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Armor DR</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Armor DR is the reduction provided by armor alone. It is a foundation
+            of physical tanking, but it should never be read as the whole story.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Physical DR</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Physical DR is separate from armor. This is important, because some
+            builds are not really “armor builds” or “block builds” — they are
+            simply stacking another physical mitigation layer.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Global DR</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Global DR is often one of the strongest layers in the game because it
+            improves survivability in multiple scenarios at once. If your build
+            feels unstable everywhere, this is often one of the first places to
+            look.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Magic DR</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Many tanks look good on physical damage and then collapse against magic.
+            That is why this site separates magical reads instead of hiding them
+            inside a broad average.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Block chance vs block value</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            A common mistake is to stack block chance without enough block value.
+            That creates a build that sounds strong on paper but does not actually
+            cut enough damage off large hits.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Avoidance</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Dodge and parry are powerful, but they are still “no-hit” mechanics.
+            If the hit lands, the rest of your build has to hold up. Avoidance-only
+            logic becomes dangerous when burst enters the picture.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Absorb</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            Absorb can be excellent against repeat damage and medium hits. But it
+            should not be treated as a universal answer to every burst problem.
+          </p>
+        </section>
+
+        <section style={cardStyle}>
+          <h2 style={{ marginTop: 0 }}>Decision-making, not just math</h2>
+          <p style={{ color: "#cbd5e1", lineHeight: 1.7 }}>
+            A good tank tool should not only say “you have X mitigation.” It should
+            also help answer:
+          </p>
+          <ul style={{ color: "#cbd5e1", lineHeight: 1.8, paddingLeft: 18 }}>
+            <li>Am I weak to average physical hits or burst?</li>
+            <li>Is my block setup actually paying off?</li>
+            <li>Am I overinvested in avoidance?</li>
+            <li>Should I improve armor, DR, block value, or magical survival next?</li>
+          </ul>
         </section>
       </div>
     </main>
