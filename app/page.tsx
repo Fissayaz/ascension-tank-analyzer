@@ -33,8 +33,10 @@ export default function Page() {
   const [parry, setParry] = useState(10);
   const [blockChance, setBlockChance] = useState(15);
   const [blockValue, setBlockValue] = useState(300);
-  const [globalDr, setGlobalDr] = useState(0);
-  const [magicDr, setMagicDr] = useState(0);
+
+  const [basePhysicalDr, setBasePhysicalDr] = useState(0);
+  const [baseGlobalDr, setBaseGlobalDr] = useState(0);
+  const [baseMagicDr, setBaseMagicDr] = useState(0);
   const [absorb, setAbsorb] = useState(0);
 
   const [physicalHit, setPhysicalHit] = useState(6000);
@@ -44,12 +46,20 @@ export default function Page() {
   const [fierceBlockEfficiency, setFierceBlockEfficiency] = useState(50);
   const [fierceAbsorbEfficiency, setFierceAbsorbEfficiency] = useState(50);
 
+  // Stances / Forms
   const [defensiveStance, setDefensiveStance] = useState(false);
+  const [bearForm, setBearForm] = useState(false);
+  const [righteousFury, setRighteousFury] = useState(false);
+  const [manaForgedBarrier, setManaForgedBarrier] = useState(false);
+
+  // CDs
   const [shieldWall, setShieldWall] = useState(false);
   const [barkskin, setBarkskin] = useState(false);
-  const [manaShield, setManaShield] = useState(false);
-  const [bonusBlockMystic, setBonusBlockMystic] = useState(false);
-  const [righteousFury, setRighteousFury] = useState(false);
+
+  // Mystics
+  const [carnageIncarnate, setCarnageIncarnate] = useState(false);
+  const [relentless, setRelentless] = useState(false);
+  const [crimsonChampion, setCrimsonChampion] = useState(false);
 
   function applyPreset(name: PresetName) {
     if (name === "block") {
@@ -59,15 +69,22 @@ export default function Page() {
       setParry(12);
       setBlockChance(28);
       setBlockValue(550);
-      setGlobalDr(2);
-      setMagicDr(0);
+      setBasePhysicalDr(0);
+      setBaseGlobalDr(2);
+      setBaseMagicDr(0);
       setAbsorb(0);
+
       setDefensiveStance(true);
+      setBearForm(false);
+      setRighteousFury(true);
+      setManaForgedBarrier(false);
+
       setShieldWall(false);
       setBarkskin(false);
-      setManaShield(false);
-      setBonusBlockMystic(true);
-      setRighteousFury(true);
+
+      setCarnageIncarnate(false);
+      setRelentless(true);
+      setCrimsonChampion(true);
     }
 
     if (name === "bear") {
@@ -77,15 +94,22 @@ export default function Page() {
       setParry(6);
       setBlockChance(0);
       setBlockValue(0);
-      setGlobalDr(4);
-      setMagicDr(0);
+      setBasePhysicalDr(2);
+      setBaseGlobalDr(2);
+      setBaseMagicDr(0);
       setAbsorb(0);
+
       setDefensiveStance(false);
+      setBearForm(true);
+      setRighteousFury(false);
+      setManaForgedBarrier(false);
+
       setShieldWall(false);
       setBarkskin(true);
-      setManaShield(false);
-      setBonusBlockMystic(false);
-      setRighteousFury(false);
+
+      setCarnageIncarnate(true);
+      setRelentless(false);
+      setCrimsonChampion(false);
     }
 
     if (name === "parry") {
@@ -95,15 +119,22 @@ export default function Page() {
       setParry(24);
       setBlockChance(8);
       setBlockValue(180);
-      setGlobalDr(2);
-      setMagicDr(0);
+      setBasePhysicalDr(0);
+      setBaseGlobalDr(2);
+      setBaseMagicDr(0);
       setAbsorb(0);
+
       setDefensiveStance(true);
+      setBearForm(false);
+      setRighteousFury(false);
+      setManaForgedBarrier(false);
+
       setShieldWall(false);
       setBarkskin(false);
-      setManaShield(false);
-      setBonusBlockMystic(false);
-      setRighteousFury(false);
+
+      setCarnageIncarnate(false);
+      setRelentless(true);
+      setCrimsonChampion(false);
     }
 
     if (name === "mana") {
@@ -113,92 +144,127 @@ export default function Page() {
       setParry(8);
       setBlockChance(12);
       setBlockValue(220);
-      setGlobalDr(0);
-      setMagicDr(10);
+      setBasePhysicalDr(0);
+      setBaseGlobalDr(0);
+      setBaseMagicDr(10);
       setAbsorb(1200);
+
       setDefensiveStance(false);
+      setBearForm(false);
+      setRighteousFury(false);
+      setManaForgedBarrier(true);
+
       setShieldWall(false);
       setBarkskin(false);
-      setManaShield(true);
-      setBonusBlockMystic(false);
-      setRighteousFury(false);
+
+      setCarnageIncarnate(false);
+      setRelentless(false);
+      setCrimsonChampion(false);
     }
   }
 
   const calc = useMemo(() => {
     let finalArmor = armor;
-    let finalGlobalDr = globalDr;
-    let finalMagicDr = magicDr;
+    let stanceArmorPct = 0;
+
+    let physicalDr = basePhysicalDr;
+    let globalDr = baseGlobalDr;
+    let magicDr = baseMagicDr;
+
     let finalAbsorb = absorb;
     let finalBlockChance = blockChance;
     let finalBlockValue = blockValue;
     let fierceBlockBonus = 0;
 
+    // Stances / forms
     if (defensiveStance) {
-      finalArmor *= 1.1;
-      finalGlobalDr += 5;
+      stanceArmorPct += 10;
+      globalDr += 5;
     }
 
-    if (shieldWall) {
-      finalGlobalDr += 60;
-    }
-
-    if (barkskin) {
-      finalGlobalDr += 15;
-    }
-
-    if (manaShield) {
-      finalAbsorb += 800;
-      finalMagicDr += 10;
-    }
-
-    if (bonusBlockMystic) {
-      finalBlockChance += 8;
-      finalBlockValue *= 1.15;
+    if (bearForm) {
+      stanceArmorPct += 30;
     }
 
     if (righteousFury) {
-      finalArmor *= 1.1;
+      stanceArmorPct += 10;
       fierceBlockBonus += 20;
     }
 
-    finalGlobalDr = clamp(finalGlobalDr, 0, 90);
-    finalMagicDr = clamp(finalMagicDr, 0, 90);
+    if (manaForgedBarrier) {
+      finalAbsorb += 800;
+      magicDr += 10;
+    }
+
+    // CDs
+    if (shieldWall) {
+      globalDr += 60;
+    }
+
+    if (barkskin) {
+      globalDr += 15;
+    }
+
+    // Mystics
+    if (carnageIncarnate) {
+      physicalDr += 15;
+    }
+
+    if (relentless) {
+      globalDr += 8;
+    }
+
+    if (crimsonChampion) {
+      finalBlockChance += 10;
+      finalBlockValue *= 1.15;
+    }
+
+    finalArmor *= 1 + stanceArmorPct / 100;
+
+    globalDr = clamp(globalDr, 0, 90);
+    magicDr = clamp(magicDr, 0, 90);
+    physicalDr = clamp(physicalDr, 0, 90);
     finalBlockChance = clamp(finalBlockChance, 0, 95);
 
     const avoidance = clamp(dodge + parry, 0, 100);
     const armorDr = armorReductionPct(finalArmor);
 
     const physicalAfterArmor = physicalHit * (1 - armorDr / 100);
-    const physicalAfterDr = physicalAfterArmor * (1 - finalGlobalDr / 100);
+    const physicalAfterPhysicalDr = physicalAfterArmor * (1 - physicalDr / 100);
+    const physicalAfterGlobalDr =
+      physicalAfterPhysicalDr * (1 - globalDr / 100);
+
     const averageBlockReduction =
-      Math.min(finalBlockValue, physicalAfterDr) * (finalBlockChance / 100);
+      Math.min(finalBlockValue, physicalAfterGlobalDr) *
+      (finalBlockChance / 100);
 
     const physicalAverage = Math.max(
       0,
-      physicalAfterDr - averageBlockReduction - finalAbsorb
+      physicalAfterGlobalDr - averageBlockReduction - finalAbsorb
     );
-    const physicalWorst = Math.max(0, physicalAfterDr - finalAbsorb);
+    const physicalWorst = Math.max(0, physicalAfterGlobalDr - finalAbsorb);
 
-    const magicalAfterDr =
-      magicalHit * (1 - finalMagicDr / 100) * (1 - finalGlobalDr / 100);
-    const magicalAverage = Math.max(0, magicalAfterDr - finalAbsorb);
+    const magicalAfterMagicDr = magicalHit * (1 - magicDr / 100);
+    const magicalAfterGlobalDr = magicalAfterMagicDr * (1 - globalDr / 100);
+    const magicalAverage = Math.max(0, magicalAfterGlobalDr - finalAbsorb);
 
     const fierceAfterArmor = fierceBlow * (1 - armorDr / 100);
-    const fierceAfterDr = fierceAfterArmor * (1 - finalGlobalDr / 100);
+    const fierceAfterPhysicalDr = fierceAfterArmor * (1 - physicalDr / 100);
+    const fierceAfterGlobalDr = fierceAfterPhysicalDr * (1 - globalDr / 100);
 
     const fierceBlockChance = clamp(finalBlockChance + fierceBlockBonus, 0, 100);
     const fierceBlockValue = finalBlockValue * (fierceBlockEfficiency / 100);
     const fierceAbsorb = finalAbsorb * (fierceAbsorbEfficiency / 100);
 
     const fierceAverageBlockReduction =
-      Math.min(fierceBlockValue, fierceAfterDr) * (fierceBlockChance / 100);
+      Math.min(fierceBlockValue, fierceAfterGlobalDr) *
+      (fierceBlockChance / 100);
 
     const fierceAverage = Math.max(
       0,
-      fierceAfterDr - fierceAverageBlockReduction - fierceAbsorb
+      fierceAfterGlobalDr - fierceAverageBlockReduction - fierceAbsorb
     );
-    const fierceWorst = Math.max(0, fierceAfterDr - fierceAbsorb);
+    const fierceWorst = Math.max(0, fierceAfterGlobalDr - fierceAbsorb);
 
     const physicalReduction = clamp(
       (1 - physicalAverage / Math.max(1, physicalHit)) * 100,
@@ -216,7 +282,13 @@ export default function Page() {
       99
     );
 
-    const ehp = hp / Math.max(0.01, 1 - ((armorDr + finalGlobalDr) / 100));
+    const totalDisplayedPhysicalDr = clamp(
+      armorDr + physicalDr + globalDr,
+      0,
+      99
+    );
+
+    const ehp = hp / Math.max(0.01, 1 - totalDisplayedPhysicalDr / 100);
     const fierceSurvivable = Math.max(
       1,
       Math.floor(hp / Math.max(1, fierceWorst))
@@ -229,7 +301,7 @@ export default function Page() {
       tankProfile = "Parry Tank";
     } else if (hp >= 14000 && finalArmor >= 15000) {
       tankProfile = "Bear / EHP Tank";
-    } else if (manaShield || finalAbsorb >= 1000) {
+    } else if (manaForgedBarrier || finalAbsorb >= 1000) {
       tankProfile = "Mana / Absorb Tank";
     }
 
@@ -273,9 +345,9 @@ export default function Page() {
     if (fierceReduction < 35 && finalBlockValue < physicalHit * 0.08) {
       priority = "Monte la block value en priorité.";
     } else if (fierceReduction < 35) {
-      priority = "Monte ta mitigation physique pour mieux tenir les Fierce Blows.";
+      priority = "Monte la mitigation physique pour mieux tenir les Fierce Blows.";
     } else if (physicalReduction < 50) {
-      priority = "Monte l’armor ou la DR globale.";
+      priority = "Monte l’armor, la DR physique ou la DR globale.";
     } else if (magicalReduction < 20) {
       priority = "Monte la mitigation magique.";
     } else if (avoidance < 20) {
@@ -290,7 +362,7 @@ export default function Page() {
       parry?: number;
     }) {
       const nextArmor = finalArmor + (variant.armor ?? 0);
-      const nextGlobalDr = finalGlobalDr + (variant.globalDr ?? 0);
+      const nextGlobalDr = globalDr + (variant.globalDr ?? 0);
       const nextBlockValue = finalBlockValue + (variant.blockValue ?? 0);
       const nextBlockChance = finalBlockChance + (variant.blockChance ?? 0);
       const nextParry = parry + (variant.parry ?? 0);
@@ -298,23 +370,34 @@ export default function Page() {
       const nextArmorDr = armorReductionPct(nextArmor);
 
       const nextPhysicalAfterArmor = physicalHit * (1 - nextArmorDr / 100);
-      const nextPhysicalAfterDr =
-        nextPhysicalAfterArmor * (1 - nextGlobalDr / 100);
+      const nextPhysicalAfterPhysicalDr =
+        nextPhysicalAfterArmor * (1 - physicalDr / 100);
+      const nextPhysicalAfterGlobalDr =
+        nextPhysicalAfterPhysicalDr * (1 - nextGlobalDr / 100);
+
       const nextAverageBlockReduction =
-        Math.min(nextBlockValue, nextPhysicalAfterDr) * (nextBlockChance / 100);
+        Math.min(nextBlockValue, nextPhysicalAfterGlobalDr) *
+        (nextBlockChance / 100);
+
       const nextPhysicalAverage = Math.max(
         0,
-        nextPhysicalAfterDr - nextAverageBlockReduction - finalAbsorb
+        nextPhysicalAfterGlobalDr - nextAverageBlockReduction - finalAbsorb
       );
+
       const nextPhysicalReduction = clamp(
         (1 - nextPhysicalAverage / Math.max(1, physicalHit)) * 100,
         0,
         99
       );
 
-      const nextMagicalAfterDr =
-        magicalHit * (1 - finalMagicDr / 100) * (1 - nextGlobalDr / 100);
-      const nextMagicalAverage = Math.max(0, nextMagicalAfterDr - finalAbsorb);
+      const nextMagicalAfterMagicDr = magicalHit * (1 - magicDr / 100);
+      const nextMagicalAfterGlobalDr =
+        nextMagicalAfterMagicDr * (1 - nextGlobalDr / 100);
+      const nextMagicalAverage = Math.max(
+        0,
+        nextMagicalAfterGlobalDr - finalAbsorb
+      );
+
       const nextMagicalReduction = clamp(
         (1 - nextMagicalAverage / Math.max(1, magicalHit)) * 100,
         0,
@@ -322,19 +405,25 @@ export default function Page() {
       );
 
       const nextFierceAfterArmor = fierceBlow * (1 - nextArmorDr / 100);
-      const nextFierceAfterDr =
-        nextFierceAfterArmor * (1 - nextGlobalDr / 100);
+      const nextFierceAfterPhysicalDr =
+        nextFierceAfterArmor * (1 - physicalDr / 100);
+      const nextFierceAfterGlobalDr =
+        nextFierceAfterPhysicalDr * (1 - nextGlobalDr / 100);
+
       const nextFierceBlockValue =
         nextBlockValue * (fierceBlockEfficiency / 100);
+
       const nextFierceAverageBlockReduction =
-        Math.min(nextFierceBlockValue, nextFierceAfterDr) *
+        Math.min(nextFierceBlockValue, nextFierceAfterGlobalDr) *
         (nextBlockChance / 100);
+
       const nextFierceAverage = Math.max(
         0,
-        nextFierceAfterDr -
+        nextFierceAfterGlobalDr -
           nextFierceAverageBlockReduction -
           finalAbsorb * (fierceAbsorbEfficiency / 100)
       );
+
       const nextFierceReduction = clamp(
         (1 - nextFierceAverage / Math.max(1, fierceBlow)) * 100,
         0,
@@ -353,7 +442,7 @@ export default function Page() {
 
     const compare: CompareItem[] = [
       { label: "+500 armor", ...simulateVariant({ armor: 500 }), totalGain: 0 },
-      { label: "+2% DR", ...simulateVariant({ globalDr: 2 }), totalGain: 0 },
+      { label: "+2% DR globale", ...simulateVariant({ globalDr: 2 }), totalGain: 0 },
       {
         label: "+100 block value",
         ...simulateVariant({ blockValue: 100 }),
@@ -374,8 +463,9 @@ export default function Page() {
 
     return {
       finalArmor,
-      finalGlobalDr,
-      finalMagicDr,
+      physicalDr,
+      globalDr,
+      magicDr,
       finalAbsorb,
       finalBlockChance,
       finalBlockValue,
@@ -389,6 +479,7 @@ export default function Page() {
       fierceAverage,
       fierceWorst,
       fierceReduction,
+      totalDisplayedPhysicalDr,
       ehp,
       fierceSurvivable,
       tankProfile,
@@ -405,8 +496,9 @@ export default function Page() {
     parry,
     blockChance,
     blockValue,
-    globalDr,
-    magicDr,
+    basePhysicalDr,
+    baseGlobalDr,
+    baseMagicDr,
     absorb,
     physicalHit,
     magicalHit,
@@ -414,11 +506,14 @@ export default function Page() {
     fierceBlockEfficiency,
     fierceAbsorbEfficiency,
     defensiveStance,
+    bearForm,
+    righteousFury,
+    manaForgedBarrier,
     shieldWall,
     barkskin,
-    manaShield,
-    bonusBlockMystic,
-    righteousFury,
+    carnageIncarnate,
+    relentless,
+    crimsonChampion,
   ]);
 
   const inputStyle: React.CSSProperties = {
@@ -449,7 +544,11 @@ export default function Page() {
     cursor: "pointer",
   };
 
-  const toggleRow = (label: string, checked: boolean, onChange: (v: boolean) => void) => (
+  const toggleRow = (
+    label: string,
+    checked: boolean,
+    onChange: (v: boolean) => void
+  ) => (
     <label
       style={{
         display: "flex",
@@ -490,6 +589,18 @@ export default function Page() {
     </div>
   );
 
+  const metricCard = (label: string, value: string) => (
+    <div
+      style={{
+        ...cardStyle,
+        padding: 18,
+      }}
+    >
+      <div style={{ color: "#94a3b8", fontSize: 13 }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 700, marginTop: 6 }}>{value}</div>
+    </div>
+  );
+
   return (
     <main
       style={{
@@ -522,11 +633,11 @@ export default function Page() {
               marginBottom: 16,
             }}
           >
-            Ascension Tank Analyzer — V6 presets & toggles
+            Ascension Tank Analyzer — V7 structure serveur
           </div>
 
           <h1 style={{ fontSize: 40, margin: 0, lineHeight: 1.05 }}>
-            Presets rapides et vrais toggles utiles.
+            Un outil qui commence à parler le langage des tanks Ascension.
           </h1>
 
           <p
@@ -534,13 +645,13 @@ export default function Page() {
               color: "#94a3b8",
               marginTop: 16,
               fontSize: 18,
-              maxWidth: 900,
+              maxWidth: 980,
               lineHeight: 1.6,
             }}
           >
-            Teste rapidement des styles de tank différents, active quelques gros
-            outils défensifs, puis regarde comment le diagnostic et les priorités
-            changent immédiatement.
+            Cette version sépare mieux Armor DR, Physical DR, Global DR et Magic
+            DR, ajoute quelques stances et mystiques nommés proprement, et améliore
+            la lecture pour les novices comme pour les tanks avancés.
           </p>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
@@ -554,13 +665,13 @@ export default function Page() {
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: "1.1fr 0.9fr",
+            gridTemplateColumns: "1.08fr 0.92fr",
             gap: 24,
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Stats du tank</h2>
+              <h2 style={{ marginTop: 0 }}>Base du personnage</h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div><label>HP</label><input style={inputStyle} type="number" value={hp} onChange={(e) => setHp(Number(e.target.value))} /></div>
                 <div><label>Armor</label><input style={inputStyle} type="number" value={armor} onChange={(e) => setArmor(Number(e.target.value))} /></div>
@@ -568,21 +679,31 @@ export default function Page() {
                 <div><label>Parry %</label><input style={inputStyle} type="number" value={parry} onChange={(e) => setParry(Number(e.target.value))} /></div>
                 <div><label>Block %</label><input style={inputStyle} type="number" value={blockChance} onChange={(e) => setBlockChance(Number(e.target.value))} /></div>
                 <div><label>Block Value</label><input style={inputStyle} type="number" value={blockValue} onChange={(e) => setBlockValue(Number(e.target.value))} /></div>
-                <div><label>DR globale %</label><input style={inputStyle} type="number" value={globalDr} onChange={(e) => setGlobalDr(Number(e.target.value))} /></div>
-                <div><label>DR magique %</label><input style={inputStyle} type="number" value={magicDr} onChange={(e) => setMagicDr(Number(e.target.value))} /></div>
+                <div><label>Physical DR %</label><input style={inputStyle} type="number" value={basePhysicalDr} onChange={(e) => setBasePhysicalDr(Number(e.target.value))} /></div>
+                <div><label>Global DR %</label><input style={inputStyle} type="number" value={baseGlobalDr} onChange={(e) => setBaseGlobalDr(Number(e.target.value))} /></div>
+                <div><label>Magic DR %</label><input style={inputStyle} type="number" value={baseMagicDr} onChange={(e) => setBaseMagicDr(Number(e.target.value))} /></div>
                 <div><label>Absorb</label><input style={inputStyle} type="number" value={absorb} onChange={(e) => setAbsorb(Number(e.target.value))} /></div>
               </div>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Toggles rapides</h2>
+              <h2 style={{ marginTop: 0 }}>Stances / forms / auras</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                {toggleRow("Defensive Stance (+armor, +DR)", defensiveStance, setDefensiveStance)}
-                {toggleRow("Shield Wall (+60% DR)", shieldWall, setShieldWall)}
-                {toggleRow("Barkskin (+15% DR)", barkskin, setBarkskin)}
-                {toggleRow("Mana Shield (+absorb, +magic DR)", manaShield, setManaShield)}
-                {toggleRow("Bonus block mystique", bonusBlockMystic, setBonusBlockMystic)}
-                {toggleRow("Righteous Fury (armor + block FB)", righteousFury, setRighteousFury)}
+                {toggleRow("Defensive Stance", defensiveStance, setDefensiveStance)}
+                {toggleRow("Bear Form", bearForm, setBearForm)}
+                {toggleRow("Righteous Fury", righteousFury, setRighteousFury)}
+                {toggleRow("Mana-Forged Barrier", manaForgedBarrier, setManaForgedBarrier)}
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h2 style={{ marginTop: 0 }}>Cooldowns & mystiques</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                {toggleRow("Shield Wall", shieldWall, setShieldWall)}
+                {toggleRow("Barkskin", barkskin, setBarkskin)}
+                {toggleRow("Carnage Incarnate", carnageIncarnate, setCarnageIncarnate)}
+                {toggleRow("Relentless", relentless, setRelentless)}
+                {toggleRow("Crimson Champion", crimsonChampion, setCrimsonChampion)}
               </div>
             </div>
 
@@ -596,6 +717,17 @@ export default function Page() {
                 <div><label>Absorb efficiency FB %</label><input style={inputStyle} type="number" value={fierceAbsorbEfficiency} onChange={(e) => setFierceAbsorbEfficiency(Number(e.target.value))} /></div>
               </div>
             </div>
+
+            <div style={cardStyle}>
+              <h2 style={{ marginTop: 0 }}>Comment lire cette page</h2>
+              <div style={{ display: "grid", gap: 8, color: "#cbd5e1" }}>
+                <div><strong>Armor DR</strong> : réduction fournie par l’armure seule.</div>
+                <div><strong>Physical DR</strong> : réduction physique hors armure.</div>
+                <div><strong>Global DR</strong> : réduction qui s’applique à plusieurs types de dégâts.</div>
+                <div><strong>Magic DR</strong> : réduction spécifique au magique.</div>
+                <div><strong>Fierce Blow</strong> : traité à part pour éviter de mélanger burst spécial et hit normal.</div>
+              </div>
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -606,6 +738,27 @@ export default function Page() {
               </div>
               <div style={{ marginTop: 14, color: "#cbd5e1" }}>
                 Priorité actuelle : <strong>{calc.priority}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              {metricCard("Avoidance", `${calc.avoidance.toFixed(1)}%`)}
+              {metricCard("EHP", Math.round(calc.ehp).toLocaleString())}
+              {metricCard("Armor DR", `${calc.armorDr.toFixed(1)}%`)}
+              {metricCard("FB survivables", `${calc.fierceSurvivable}`)}
+            </div>
+
+            <div style={cardStyle}>
+              <h2 style={{ marginTop: 0 }}>Couches défensives</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                <div>Armor DR : <strong>{calc.armorDr.toFixed(1)}%</strong></div>
+                <div>Physical DR : <strong>{calc.physicalDr.toFixed(1)}%</strong></div>
+                <div>Global DR : <strong>{calc.globalDr.toFixed(1)}%</strong></div>
+                <div>Magic DR : <strong>{calc.magicDr.toFixed(1)}%</strong></div>
+                <div>Block chance finale : <strong>{calc.finalBlockChance.toFixed(1)}%</strong></div>
+                <div>Block value finale : <strong>{Math.round(calc.finalBlockValue).toLocaleString()}</strong></div>
+                <div>Absorb final : <strong>{Math.round(calc.finalAbsorb).toLocaleString()}</strong></div>
+                <div>Physical DR affichée (approx) : <strong>{calc.totalDisplayedPhysicalDr.toFixed(1)}%</strong></div>
               </div>
             </div>
 
@@ -679,14 +832,13 @@ export default function Page() {
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Résumé chiffré</h2>
+              <h2 style={{ marginTop: 0 }}>Résumé hits</h2>
               <div style={{ display: "grid", gap: 10 }}>
-                <div>Avoidance : <strong>{calc.avoidance.toFixed(1)}%</strong></div>
-                <div>Armor finale : <strong>{Math.round(calc.finalArmor).toLocaleString()}</strong></div>
-                <div>DR globale finale : <strong>{calc.finalGlobalDr.toFixed(1)}%</strong></div>
-                <div>Absorb final : <strong>{Math.round(calc.finalAbsorb).toLocaleString()}</strong></div>
-                <div>EHP : <strong>{Math.round(calc.ehp).toLocaleString()}</strong></div>
-                <div>Fierce Blows survivables : <strong>{calc.fierceSurvivable}</strong></div>
+                <div>Hit physique moyen : <strong>{Math.round(calc.physicalAverage).toLocaleString()}</strong></div>
+                <div>Worst case physique : <strong>{Math.round(calc.physicalWorst).toLocaleString()}</strong></div>
+                <div>Hit magique moyen : <strong>{Math.round(calc.magicalAverage).toLocaleString()}</strong></div>
+                <div>Fierce Blow moyen : <strong>{Math.round(calc.fierceAverage).toLocaleString()}</strong></div>
+                <div>Worst case Fierce Blow : <strong>{Math.round(calc.fierceWorst).toLocaleString()}</strong></div>
               </div>
             </div>
           </div>
