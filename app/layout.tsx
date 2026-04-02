@@ -5,7 +5,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Ascension Tank Analyzer",
   description:
-    "Calculateur et guide tank pour Ascension : mitigation, avoidance, block, absorb et Fierce Blow.",
+    "Tank calculator and reference site for Ascension: mitigation, avoidance, block, absorb and Fierce Blow.",
 };
 
 export default function RootLayout({
@@ -14,15 +14,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
-      <body>
+    <html lang="en">
+      <body
+        style={{
+          margin: 0,
+          background: "#020617",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
+        {/* HEADER / NAV */}
         <header
           style={{
             position: "sticky",
             top: 0,
             zIndex: 20,
             backdropFilter: "blur(10px)",
-            background: "rgba(2,6,23,0.8)",
+            background: "rgba(2,6,23,0.85)",
             borderBottom: "1px solid rgba(148,163,184,0.15)",
           }}
         >
@@ -37,17 +44,20 @@ export default function RootLayout({
               gap: 16,
             }}
           >
+            {/* LOGO / TITLE */}
             <Link
               href="/"
               style={{
                 fontWeight: 700,
                 color: "white",
                 textDecoration: "none",
+                fontSize: 16,
               }}
             >
               Ascension Tank Analyzer
             </Link>
 
+            {/* NAVIGATION */}
             <nav
               style={{
                 display: "flex",
@@ -56,20 +66,30 @@ export default function RootLayout({
               }}
             >
               <Link href="/" style={{ color: "#cbd5e1", textDecoration: "none" }}>
-                Accueil
+                Home
               </Link>
+
               <Link
                 href="/calculator"
                 style={{ color: "#cbd5e1", textDecoration: "none" }}
               >
-                Calculateur
+                Calculator
               </Link>
+
+              <Link
+                href="/builds"
+                style={{ color: "#cbd5e1", textDecoration: "none" }}
+              >
+                Builds
+              </Link>
+
               <Link
                 href="/guide"
                 style={{ color: "#cbd5e1", textDecoration: "none" }}
               >
                 Guide
               </Link>
+
               <Link
                 href="/fierce-blow"
                 style={{ color: "#cbd5e1", textDecoration: "none" }}
@@ -80,7 +100,8 @@ export default function RootLayout({
           </div>
         </header>
 
-        {children}
+        {/* PAGE CONTENT */}
+        <main>{children}</main>
       </body>
     </html>
   );
