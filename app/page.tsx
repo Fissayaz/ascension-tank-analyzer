@@ -24,6 +24,8 @@ type CompareItem = {
   totalGain: number;
 };
 
+type PresetName = "block" | "bear" | "parry" | "mana";
+
 export default function Page() {
   const [hp, setHp] = useState(10000);
   const [armor, setArmor] = useState(12000);
@@ -42,32 +44,155 @@ export default function Page() {
   const [fierceBlockEfficiency, setFierceBlockEfficiency] = useState(50);
   const [fierceAbsorbEfficiency, setFierceAbsorbEfficiency] = useState(50);
 
+  const [defensiveStance, setDefensiveStance] = useState(false);
+  const [shieldWall, setShieldWall] = useState(false);
+  const [barkskin, setBarkskin] = useState(false);
+  const [manaShield, setManaShield] = useState(false);
+  const [bonusBlockMystic, setBonusBlockMystic] = useState(false);
+  const [righteousFury, setRighteousFury] = useState(false);
+
+  function applyPreset(name: PresetName) {
+    if (name === "block") {
+      setHp(11000);
+      setArmor(14000);
+      setDodge(8);
+      setParry(12);
+      setBlockChance(28);
+      setBlockValue(550);
+      setGlobalDr(2);
+      setMagicDr(0);
+      setAbsorb(0);
+      setDefensiveStance(true);
+      setShieldWall(false);
+      setBarkskin(false);
+      setManaShield(false);
+      setBonusBlockMystic(true);
+      setRighteousFury(true);
+    }
+
+    if (name === "bear") {
+      setHp(15000);
+      setArmor(16500);
+      setDodge(14);
+      setParry(6);
+      setBlockChance(0);
+      setBlockValue(0);
+      setGlobalDr(4);
+      setMagicDr(0);
+      setAbsorb(0);
+      setDefensiveStance(false);
+      setShieldWall(false);
+      setBarkskin(true);
+      setManaShield(false);
+      setBonusBlockMystic(false);
+      setRighteousFury(false);
+    }
+
+    if (name === "parry") {
+      setHp(10500);
+      setArmor(12500);
+      setDodge(10);
+      setParry(24);
+      setBlockChance(8);
+      setBlockValue(180);
+      setGlobalDr(2);
+      setMagicDr(0);
+      setAbsorb(0);
+      setDefensiveStance(true);
+      setShieldWall(false);
+      setBarkskin(false);
+      setManaShield(false);
+      setBonusBlockMystic(false);
+      setRighteousFury(false);
+    }
+
+    if (name === "mana") {
+      setHp(9500);
+      setArmor(10000);
+      setDodge(9);
+      setParry(8);
+      setBlockChance(12);
+      setBlockValue(220);
+      setGlobalDr(0);
+      setMagicDr(10);
+      setAbsorb(1200);
+      setDefensiveStance(false);
+      setShieldWall(false);
+      setBarkskin(false);
+      setManaShield(true);
+      setBonusBlockMystic(false);
+      setRighteousFury(false);
+    }
+  }
+
   const calc = useMemo(() => {
+    let finalArmor = armor;
+    let finalGlobalDr = globalDr;
+    let finalMagicDr = magicDr;
+    let finalAbsorb = absorb;
+    let finalBlockChance = blockChance;
+    let finalBlockValue = blockValue;
+    let fierceBlockBonus = 0;
+
+    if (defensiveStance) {
+      finalArmor *= 1.1;
+      finalGlobalDr += 5;
+    }
+
+    if (shieldWall) {
+      finalGlobalDr += 60;
+    }
+
+    if (barkskin) {
+      finalGlobalDr += 15;
+    }
+
+    if (manaShield) {
+      finalAbsorb += 800;
+      finalMagicDr += 10;
+    }
+
+    if (bonusBlockMystic) {
+      finalBlockChance += 8;
+      finalBlockValue *= 1.15;
+    }
+
+    if (righteousFury) {
+      finalArmor *= 1.1;
+      fierceBlockBonus += 20;
+    }
+
+    finalGlobalDr = clamp(finalGlobalDr, 0, 90);
+    finalMagicDr = clamp(finalMagicDr, 0, 90);
+    finalBlockChance = clamp(finalBlockChance, 0, 95);
+
     const avoidance = clamp(dodge + parry, 0, 100);
-    const armorDr = armorReductionPct(armor);
+    const armorDr = armorReductionPct(finalArmor);
 
     const physicalAfterArmor = physicalHit * (1 - armorDr / 100);
-    const physicalAfterDr = physicalAfterArmor * (1 - globalDr / 100);
+    const physicalAfterDr = physicalAfterArmor * (1 - finalGlobalDr / 100);
     const averageBlockReduction =
-      Math.min(blockValue, physicalAfterDr) * (blockChance / 100);
+      Math.min(finalBlockValue, physicalAfterDr) * (finalBlockChance / 100);
 
     const physicalAverage = Math.max(
       0,
-      physicalAfterDr - averageBlockReduction - absorb
+      physicalAfterDr - averageBlockReduction - finalAbsorb
     );
-    const physicalWorst = Math.max(0, physicalAfterDr - absorb);
+    const physicalWorst = Math.max(0, physicalAfterDr - finalAbsorb);
 
     const magicalAfterDr =
-      magicalHit * (1 - magicDr / 100) * (1 - globalDr / 100);
-    const magicalAverage = Math.max(0, magicalAfterDr - absorb);
+      magicalHit * (1 - finalMagicDr / 100) * (1 - finalGlobalDr / 100);
+    const magicalAverage = Math.max(0, magicalAfterDr - finalAbsorb);
 
     const fierceAfterArmor = fierceBlow * (1 - armorDr / 100);
-    const fierceAfterDr = fierceAfterArmor * (1 - globalDr / 100);
+    const fierceAfterDr = fierceAfterArmor * (1 - finalGlobalDr / 100);
 
-    const fierceBlockValue = blockValue * (fierceBlockEfficiency / 100);
-    const fierceAbsorb = absorb * (fierceAbsorbEfficiency / 100);
+    const fierceBlockChance = clamp(finalBlockChance + fierceBlockBonus, 0, 100);
+    const fierceBlockValue = finalBlockValue * (fierceBlockEfficiency / 100);
+    const fierceAbsorb = finalAbsorb * (fierceAbsorbEfficiency / 100);
+
     const fierceAverageBlockReduction =
-      Math.min(fierceBlockValue, fierceAfterDr) * (blockChance / 100);
+      Math.min(fierceBlockValue, fierceAfterDr) * (fierceBlockChance / 100);
 
     const fierceAverage = Math.max(
       0,
@@ -91,21 +216,21 @@ export default function Page() {
       99
     );
 
-    const ehp = hp / Math.max(0.01, 1 - ((armorDr + globalDr) / 100));
+    const ehp = hp / Math.max(0.01, 1 - ((armorDr + finalGlobalDr) / 100));
     const fierceSurvivable = Math.max(
       1,
       Math.floor(hp / Math.max(1, fierceWorst))
     );
 
     let tankProfile = "Hybrid Tank";
-    if (blockChance >= 22 && blockValue >= physicalHit * 0.08) {
+    if (finalBlockChance >= 22 && finalBlockValue >= physicalHit * 0.08) {
       tankProfile = "Block Tank";
     } else if (parry >= dodge + 5) {
       tankProfile = "Parry Tank";
-    } else if (hp >= 14000 && armor >= 15000) {
+    } else if (hp >= 14000 && finalArmor >= 15000) {
       tankProfile = "Bear / EHP Tank";
-    } else if (avoidance >= 30 && hp < 12000) {
-      tankProfile = "Avoidance Tank";
+    } else if (manaShield || finalAbsorb >= 1000) {
+      tankProfile = "Mana / Absorb Tank";
     }
 
     const criticalProblems: string[] = [];
@@ -124,7 +249,7 @@ export default function Page() {
       importantProblems.push("Mitigation magique faible.");
     }
 
-    if (blockChance >= 20 && blockValue < physicalHit * 0.08) {
+    if (finalBlockChance >= 20 && finalBlockValue < physicalHit * 0.08) {
       importantProblems.push("Tu as du block chance, mais pas assez de block value.");
     }
 
@@ -145,7 +270,7 @@ export default function Page() {
     }
 
     let priority = "Aucune priorité évidente.";
-    if (fierceReduction < 35 && blockValue < physicalHit * 0.08) {
+    if (fierceReduction < 35 && finalBlockValue < physicalHit * 0.08) {
       priority = "Monte la block value en priorité.";
     } else if (fierceReduction < 35) {
       priority = "Monte ta mitigation physique pour mieux tenir les Fierce Blows.";
@@ -164,10 +289,10 @@ export default function Page() {
       blockChance?: number;
       parry?: number;
     }) {
-      const nextArmor = armor + (variant.armor ?? 0);
-      const nextGlobalDr = globalDr + (variant.globalDr ?? 0);
-      const nextBlockValue = blockValue + (variant.blockValue ?? 0);
-      const nextBlockChance = blockChance + (variant.blockChance ?? 0);
+      const nextArmor = finalArmor + (variant.armor ?? 0);
+      const nextGlobalDr = finalGlobalDr + (variant.globalDr ?? 0);
+      const nextBlockValue = finalBlockValue + (variant.blockValue ?? 0);
+      const nextBlockChance = finalBlockChance + (variant.blockChance ?? 0);
       const nextParry = parry + (variant.parry ?? 0);
 
       const nextArmorDr = armorReductionPct(nextArmor);
@@ -179,7 +304,7 @@ export default function Page() {
         Math.min(nextBlockValue, nextPhysicalAfterDr) * (nextBlockChance / 100);
       const nextPhysicalAverage = Math.max(
         0,
-        nextPhysicalAfterDr - nextAverageBlockReduction - absorb
+        nextPhysicalAfterDr - nextAverageBlockReduction - finalAbsorb
       );
       const nextPhysicalReduction = clamp(
         (1 - nextPhysicalAverage / Math.max(1, physicalHit)) * 100,
@@ -188,8 +313,8 @@ export default function Page() {
       );
 
       const nextMagicalAfterDr =
-        magicalHit * (1 - magicDr / 100) * (1 - nextGlobalDr / 100);
-      const nextMagicalAverage = Math.max(0, nextMagicalAfterDr - absorb);
+        magicalHit * (1 - finalMagicDr / 100) * (1 - nextGlobalDr / 100);
+      const nextMagicalAverage = Math.max(0, nextMagicalAfterDr - finalAbsorb);
       const nextMagicalReduction = clamp(
         (1 - nextMagicalAverage / Math.max(1, magicalHit)) * 100,
         0,
@@ -208,7 +333,7 @@ export default function Page() {
         0,
         nextFierceAfterDr -
           nextFierceAverageBlockReduction -
-          absorb * (fierceAbsorbEfficiency / 100)
+          finalAbsorb * (fierceAbsorbEfficiency / 100)
       );
       const nextFierceReduction = clamp(
         (1 - nextFierceAverage / Math.max(1, fierceBlow)) * 100,
@@ -240,13 +365,20 @@ export default function Page() {
         totalGain: 0,
       },
       { label: "+5% parry", ...simulateVariant({ parry: 5 }), totalGain: 0 },
-    ].map((x) => ({
-      ...x,
-      totalGain: x.physGain + x.magicGain + x.fierceGain,
-    }))
+    ]
+      .map((x) => ({
+        ...x,
+        totalGain: x.physGain + x.magicGain + x.fierceGain,
+      }))
       .sort((a, b) => b.totalGain - a.totalGain);
 
     return {
+      finalArmor,
+      finalGlobalDr,
+      finalMagicDr,
+      finalAbsorb,
+      finalBlockChance,
+      finalBlockValue,
       avoidance,
       armorDr,
       physicalAverage,
@@ -281,6 +413,12 @@ export default function Page() {
     fierceBlow,
     fierceBlockEfficiency,
     fierceAbsorbEfficiency,
+    defensiveStance,
+    shieldWall,
+    barkskin,
+    manaShield,
+    bonusBlockMystic,
+    righteousFury,
   ]);
 
   const inputStyle: React.CSSProperties = {
@@ -302,11 +440,37 @@ export default function Page() {
     boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
   };
 
-  const problemBox = (
-    title: string,
-    items: string[],
-    color: string
-  ) => (
+  const buttonStyle: React.CSSProperties = {
+    background: "#1d4ed8",
+    color: "white",
+    border: "none",
+    borderRadius: 10,
+    padding: "10px 14px",
+    cursor: "pointer",
+  };
+
+  const toggleRow = (label: string, checked: boolean, onChange: (v: boolean) => void) => (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        background: "rgba(51,65,85,0.55)",
+        padding: 12,
+        borderRadius: 10,
+      }}
+    >
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </label>
+  );
+
+  const problemBox = (title: string, items: string[], color: string) => (
     <div style={{ ...cardStyle, borderLeft: `4px solid ${color}` }}>
       <h3 style={{ marginTop: 0 }}>{title}</h3>
       <div style={{ display: "grid", gap: 10 }}>
@@ -358,11 +522,11 @@ export default function Page() {
               marginBottom: 16,
             }}
           >
-            Ascension Tank Analyzer — V5 avancée
+            Ascension Tank Analyzer — V6 presets & toggles
           </div>
 
           <h1 style={{ fontSize: 40, margin: 0, lineHeight: 1.05 }}>
-            Un vrai assistant tank, pas juste un calculateur.
+            Presets rapides et vrais toggles utiles.
           </h1>
 
           <p
@@ -374,10 +538,17 @@ export default function Page() {
               lineHeight: 1.6,
             }}
           >
-            Cette version te donne un profil de tank, une hiérarchie de problèmes,
-            une priorité d’amélioration et une comparaison rapide des upgrades qui
-            t’apportent le plus.
+            Teste rapidement des styles de tank différents, active quelques gros
+            outils défensifs, puis regarde comment le diagnostic et les priorités
+            changent immédiatement.
           </p>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
+            <button style={buttonStyle} onClick={() => applyPreset("block")}>Preset Block Tank</button>
+            <button style={buttonStyle} onClick={() => applyPreset("bear")}>Preset Bear Tank</button>
+            <button style={buttonStyle} onClick={() => applyPreset("parry")}>Preset Parry Tank</button>
+            <button style={buttonStyle} onClick={() => applyPreset("mana")}>Preset Mana Tank</button>
+          </div>
         </section>
 
         <section
@@ -390,81 +561,39 @@ export default function Page() {
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={cardStyle}>
               <h2 style={{ marginTop: 0 }}>Stats du tank</h2>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 14,
-                }}
-              >
-                <div>
-                  <label>HP</label>
-                  <input style={inputStyle} type="number" value={hp} onChange={(e) => setHp(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Armor</label>
-                  <input style={inputStyle} type="number" value={armor} onChange={(e) => setArmor(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Dodge %</label>
-                  <input style={inputStyle} type="number" value={dodge} onChange={(e) => setDodge(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Parry %</label>
-                  <input style={inputStyle} type="number" value={parry} onChange={(e) => setParry(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Block %</label>
-                  <input style={inputStyle} type="number" value={blockChance} onChange={(e) => setBlockChance(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Block Value</label>
-                  <input style={inputStyle} type="number" value={blockValue} onChange={(e) => setBlockValue(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>DR globale %</label>
-                  <input style={inputStyle} type="number" value={globalDr} onChange={(e) => setGlobalDr(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>DR magique %</label>
-                  <input style={inputStyle} type="number" value={magicDr} onChange={(e) => setMagicDr(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Absorb</label>
-                  <input style={inputStyle} type="number" value={absorb} onChange={(e) => setAbsorb(Number(e.target.value))} />
-                </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div><label>HP</label><input style={inputStyle} type="number" value={hp} onChange={(e) => setHp(Number(e.target.value))} /></div>
+                <div><label>Armor</label><input style={inputStyle} type="number" value={armor} onChange={(e) => setArmor(Number(e.target.value))} /></div>
+                <div><label>Dodge %</label><input style={inputStyle} type="number" value={dodge} onChange={(e) => setDodge(Number(e.target.value))} /></div>
+                <div><label>Parry %</label><input style={inputStyle} type="number" value={parry} onChange={(e) => setParry(Number(e.target.value))} /></div>
+                <div><label>Block %</label><input style={inputStyle} type="number" value={blockChance} onChange={(e) => setBlockChance(Number(e.target.value))} /></div>
+                <div><label>Block Value</label><input style={inputStyle} type="number" value={blockValue} onChange={(e) => setBlockValue(Number(e.target.value))} /></div>
+                <div><label>DR globale %</label><input style={inputStyle} type="number" value={globalDr} onChange={(e) => setGlobalDr(Number(e.target.value))} /></div>
+                <div><label>DR magique %</label><input style={inputStyle} type="number" value={magicDr} onChange={(e) => setMagicDr(Number(e.target.value))} /></div>
+                <div><label>Absorb</label><input style={inputStyle} type="number" value={absorb} onChange={(e) => setAbsorb(Number(e.target.value))} /></div>
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h2 style={{ marginTop: 0 }}>Toggles rapides</h2>
+              <div style={{ display: "grid", gap: 10 }}>
+                {toggleRow("Defensive Stance (+armor, +DR)", defensiveStance, setDefensiveStance)}
+                {toggleRow("Shield Wall (+60% DR)", shieldWall, setShieldWall)}
+                {toggleRow("Barkskin (+15% DR)", barkskin, setBarkskin)}
+                {toggleRow("Mana Shield (+absorb, +magic DR)", manaShield, setManaShield)}
+                {toggleRow("Bonus block mystique", bonusBlockMystic, setBonusBlockMystic)}
+                {toggleRow("Righteous Fury (armor + block FB)", righteousFury, setRighteousFury)}
               </div>
             </div>
 
             <div style={cardStyle}>
               <h2 style={{ marginTop: 0 }}>Simulation</h2>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 14,
-                }}
-              >
-                <div>
-                  <label>Hit physique</label>
-                  <input style={inputStyle} type="number" value={physicalHit} onChange={(e) => setPhysicalHit(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Hit magique</label>
-                  <input style={inputStyle} type="number" value={magicalHit} onChange={(e) => setMagicalHit(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Fierce Blow</label>
-                  <input style={inputStyle} type="number" value={fierceBlow} onChange={(e) => setFierceBlow(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Block efficiency FB %</label>
-                  <input style={inputStyle} type="number" value={fierceBlockEfficiency} onChange={(e) => setFierceBlockEfficiency(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label>Absorb efficiency FB %</label>
-                  <input style={inputStyle} type="number" value={fierceAbsorbEfficiency} onChange={(e) => setFierceAbsorbEfficiency(Number(e.target.value))} />
-                </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div><label>Hit physique</label><input style={inputStyle} type="number" value={physicalHit} onChange={(e) => setPhysicalHit(Number(e.target.value))} /></div>
+                <div><label>Hit magique</label><input style={inputStyle} type="number" value={magicalHit} onChange={(e) => setMagicalHit(Number(e.target.value))} /></div>
+                <div><label>Fierce Blow</label><input style={inputStyle} type="number" value={fierceBlow} onChange={(e) => setFierceBlow(Number(e.target.value))} /></div>
+                <div><label>Block efficiency FB %</label><input style={inputStyle} type="number" value={fierceBlockEfficiency} onChange={(e) => setFierceBlockEfficiency(Number(e.target.value))} /></div>
+                <div><label>Absorb efficiency FB %</label><input style={inputStyle} type="number" value={fierceAbsorbEfficiency} onChange={(e) => setFierceAbsorbEfficiency(Number(e.target.value))} /></div>
               </div>
             </div>
           </div>
@@ -480,58 +609,35 @@ export default function Page() {
               </div>
             </div>
 
-            <div style={cardStyle}>
-              <h2 style={{ marginTop: 0 }}>Vue rapide</h2>
-
-              {[
-                {
-                  label: "Mitigation physique",
-                  value: calc.physicalReduction,
-                  type: "physical" as const,
-                },
-                {
-                  label: "Mitigation magique",
-                  value: calc.magicalReduction,
-                  type: "magic" as const,
-                },
-                {
-                  label: "Fierce Blow",
-                  value: calc.fierceReduction,
-                  type: "fierce" as const,
-                },
-              ].map((item) => (
-                <div key={item.label} style={{ marginTop: 16 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: 14,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <span>{item.label}</span>
-                    <strong>{item.value.toFixed(1)}%</strong>
-                  </div>
-                  <div
-                    style={{
-                      height: 12,
-                      background: "rgba(255,255,255,0.08)",
-                      borderRadius: 999,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: `${item.value}%`,
-                        height: "100%",
-                        background: barColor(item.type),
-                        borderRadius: 999,
-                      }}
-                    />
-                  </div>
+            {[
+              { label: "Mitigation physique", value: calc.physicalReduction, type: "physical" as const },
+              { label: "Mitigation magique", value: calc.magicalReduction, type: "magic" as const },
+              { label: "Fierce Blow", value: calc.fierceReduction, type: "fierce" as const },
+            ].map((item) => (
+              <div key={item.label} style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 8 }}>
+                  <span>{item.label}</span>
+                  <strong>{item.value.toFixed(1)}%</strong>
                 </div>
-              ))}
-            </div>
+                <div
+                  style={{
+                    height: 12,
+                    background: "rgba(255,255,255,0.08)",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${item.value}%`,
+                      height: "100%",
+                      background: barColor(item.type),
+                      borderRadius: 999,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
 
             {problemBox("❌ Problèmes critiques", calc.criticalProblems, "#ef4444")}
             {problemBox("⚠️ Problèmes importants", calc.importantProblems, "#f59e0b")}
@@ -576,11 +682,11 @@ export default function Page() {
               <h2 style={{ marginTop: 0 }}>Résumé chiffré</h2>
               <div style={{ display: "grid", gap: 10 }}>
                 <div>Avoidance : <strong>{calc.avoidance.toFixed(1)}%</strong></div>
-                <div>Armor DR : <strong>{calc.armorDr.toFixed(1)}%</strong></div>
+                <div>Armor finale : <strong>{Math.round(calc.finalArmor).toLocaleString()}</strong></div>
+                <div>DR globale finale : <strong>{calc.finalGlobalDr.toFixed(1)}%</strong></div>
+                <div>Absorb final : <strong>{Math.round(calc.finalAbsorb).toLocaleString()}</strong></div>
                 <div>EHP : <strong>{Math.round(calc.ehp).toLocaleString()}</strong></div>
                 <div>Fierce Blows survivables : <strong>{calc.fierceSurvivable}</strong></div>
-                <div>Worst case physique : <strong>{Math.round(calc.physicalWorst).toLocaleString()}</strong></div>
-                <div>Worst case Fierce Blow : <strong>{Math.round(calc.fierceWorst).toLocaleString()}</strong></div>
               </div>
             </div>
           </div>
