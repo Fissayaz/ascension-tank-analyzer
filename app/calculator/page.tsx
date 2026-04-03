@@ -6,7 +6,7 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-type TankType = "classic" | "mind_over_matter";
+type TankType = "classic" | "mind_over_matter" | "bear";
 
 type State = {
   tankType: TankType;
@@ -69,8 +69,8 @@ const DEFAULT: State = {
 export default function Page() {
   const [s, setS] = useState<State>(DEFAULT);
 
-  function setField<K extends keyof State>(k: K, v: State[K]) {
-    setS((prev) => ({ ...prev, [k]: v }));
+  function setField<K extends keyof State>(key: K, value: State[K]) {
+    setS((prev) => ({ ...prev, [key]: value }));
   }
 
   const r = useMemo(() => {
@@ -131,7 +131,7 @@ export default function Page() {
       whiteCoverageLabel = capped
         ? "CTC-capped against white swings"
         : "Not CTC-capped against white swings";
-    } else {
+    } else if (s.tankType === "mind_over_matter") {
       const momMiss = clamp(s.mindOverMatterMiss, 0, 95);
 
       missFromDefense = momMiss;
@@ -144,6 +144,17 @@ export default function Page() {
       whiteAverageTaken = (unblockedWhite * hitChance) / 100;
       whiteWorstTaken = unblockedWhite;
       whiteCoverageLabel = "Mind over Matter white-swing model";
+    } else {
+      const dodge = clamp(s.dodge, 0, 100);
+      totalCoverage = dodge;
+      capped = false;
+
+      const unblockedWhite = Math.max(0, whiteAfterGlobal - s.absorb);
+      const hitChance = Math.max(0, 100 - dodge);
+
+      whiteAverageTaken = (unblockedWhite * hitChance) / 100;
+      whiteWorstTaken = unblockedWhite;
+      whiteCoverageLabel = "Bear / hybrid mitigation model";
     }
 
     const fierceFinal = Math.max(0, fierceAfterGlobal - s.absorb);
@@ -159,7 +170,7 @@ export default function Page() {
         issues.push("You are not CTC-capped against white swings.");
         rec.push("Increase dodge, parry, block, or defense.");
       }
-    } else {
+    } else if (s.tankType === "mind_over_matter") {
       issues.push(
         "Mind over Matter is treated as miss-based white swing coverage."
       );
@@ -167,6 +178,14 @@ export default function Page() {
         "Burst abilities are still evaluated separately from white swing miss."
       );
       rec.push("Use your real in-game Mind over Matter miss value.");
+    } else {
+      issues.push(
+        "Bear tanks are modeled through dodge, armor, and absorb-based mitigation."
+      );
+      issues.push(
+        "This profile is usually stable, but still takes every non-dodged hit."
+      );
+      rec.push("Keep armor DR, absorb, and health high for burst survival.");
     }
 
     if (fierceFinal > s.hp * 0.6) {
@@ -338,11 +357,11 @@ export default function Page() {
               marginBottom: 16,
             }}
           >
-            Calculator — V13.1
+            Calculator — V14
           </div>
 
           <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.05 }}>
-            Classic CTC and Mind over Matter, separated correctly.
+            Three tank models: Classic, Mind over Matter, and Bear / Hybrid.
           </h1>
 
           <p
@@ -350,13 +369,14 @@ export default function Page() {
               color: "#94a3b8",
               lineHeight: 1.7,
               fontSize: 17,
-              maxWidth: 960,
+              maxWidth: 980,
               marginTop: 14,
             }}
           >
-            Classic tanks use CTC-style white swing coverage. Mind over Matter tanks
-            use a miss-based white swing model with their own dedicated input.
-            Burst survival is still evaluated separately in both cases.
+            This version supports three tank profiles. Classic tanks rely on CTC-style
+            white swing coverage. Mind over Matter tanks rely on miss-based white swing
+            coverage. Bear / hybrid tanks rely on dodge, armor, and absorb-based
+            mitigation.
           </p>
         </section>
 
@@ -403,6 +423,22 @@ export default function Page() {
                 >
                   Mind over Matter
                 </button>
+                <button
+                  onClick={() => setField("tankType", "bear")}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.2)",
+                    background:
+                      s.tankType === "bear"
+                        ? "linear-gradient(135deg, #16a34a, #15803d)"
+                        : "rgba(30,41,59,0.7)",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  Bear / Hybrid
+                </button>
               </div>
             </div>
 
@@ -426,9 +462,13 @@ export default function Page() {
                     {input("Block %", "block")}
                     {input("Block Value", "blockValue")}
                   </>
-                ) : (
+                ) : s.tankType === "mind_over_matter" ? (
                   <>
                     {input("Mind over Matter Miss %", "mindOverMatterMiss")}
+                  </>
+                ) : (
+                  <>
+                    {input("Dodge %", "dodge")}
                   </>
                 )}
               </div>
@@ -442,6 +482,50 @@ export default function Page() {
                 {input("Magic Hit", "magicHit")}
               </div>
             </div>
+
+            <div style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Model Notes</h2>
+              <div style={{ display: "grid", gap: 8, color: "#cbd5e1", lineHeight: 1.6 }}>
+                {s.tankType === "classic" && (
+                  <>
+                    <div>
+                      <strong>Classic mode:</strong> white swings are modeled through
+                      dodge, parry, block, base miss, and defense-based miss.
+                    </div>
+                    <div>
+                      <strong>Burst:</strong> Fierce Blow is evaluated separately from
+                      white swing coverage.
+                    </div>
+                  </>
+                )}
+
+                {s.tankType === "mind_over_matter" && (
+                  <>
+                    <div>
+                      <strong>Mind over Matter mode:</strong> white swings are modeled
+                      through miss-based coverage from your real in-game value.
+                    </div>
+                    <div>
+                      <strong>Burst:</strong> Fierce Blow is still treated as fully
+                      connecting unless reduced by mitigation and absorb.
+                    </div>
+                  </>
+                )}
+
+                {s.tankType === "bear" && (
+                  <>
+                    <div>
+                      <strong>Bear / hybrid mode:</strong> white swings are modeled
+                      through dodge, armor, and absorb-based mitigation.
+                    </div>
+                    <div>
+                      <strong>Burst:</strong> Fierce Blow is treated as fully connecting,
+                      then reduced by armor, DR, and absorb.
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -452,7 +536,11 @@ export default function Page() {
               </div>
               <div style={{ marginTop: 12, color: "#cbd5e1" }}>
                 Coverage Value: <strong>{r.totalCoverage.toFixed(2)}</strong>
-                {s.tankType === "classic" ? " / 102.4" : "% miss-based"}
+                {s.tankType === "classic"
+                  ? " / 102.4"
+                  : s.tankType === "mind_over_matter"
+                  ? "% miss-based"
+                  : "% dodge-based"}
               </div>
             </div>
 
@@ -476,12 +564,25 @@ export default function Page() {
                     "Base miss + defense contribution"
                   )}
                 </>
-              ) : (
+              ) : s.tankType === "mind_over_matter" ? (
                 <>
                   {metricCard(
                     "Mind over Matter Miss",
                     `${r.missFromDefense.toFixed(2)}%`,
                     "Use your real in-game miss value"
+                  )}
+                  {metricCard(
+                    "Armor DR",
+                    `${clamp(s.armorDR, 0, 95).toFixed(2)}%`,
+                    "Manual value from your character sheet"
+                  )}
+                </>
+              ) : (
+                <>
+                  {metricCard(
+                    "Bear Dodge",
+                    `${clamp(s.dodge, 0, 100).toFixed(2)}%`,
+                    "Used as white swing avoidance"
                   )}
                   {metricCard(
                     "Armor DR",
@@ -504,18 +605,26 @@ export default function Page() {
             </div>
 
             {progressBar(
-              s.tankType === "classic" ? "CTC Progress" : "Miss Coverage",
+              s.tankType === "classic"
+                ? "CTC Progress"
+                : s.tankType === "mind_over_matter"
+                ? "Miss Coverage"
+                : "Dodge Coverage",
               s.tankType === "classic"
                 ? (r.totalCoverage / 102.4) * 100
                 : r.totalCoverage,
               s.tankType === "classic"
                 ? "linear-gradient(90deg, #22c55e, #16a34a)"
-                : "linear-gradient(90deg, #a78bfa, #7c3aed)",
+                : s.tankType === "mind_over_matter"
+                ? "linear-gradient(90deg, #a78bfa, #7c3aed)"
+                : "linear-gradient(90deg, #22c55e, #15803d)",
               s.tankType === "classic"
                 ? r.capped
                   ? "You are capped against standard white swings."
                   : "You still have white swing coverage missing."
-                : "Mind over Matter is treated as miss-based white swing coverage."
+                : s.tankType === "mind_over_matter"
+                ? "Mind over Matter is treated as miss-based white swing coverage."
+                : "Bear tanks rely on dodge plus raw mitigation, not CTC."
             )}
 
             <div style={cardStyle}>
