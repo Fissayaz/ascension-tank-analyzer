@@ -24,6 +24,8 @@ type State = {
   block: number;
   blockValue: number;
 
+  mindOverMatterMiss: number;
+
   physicalDR: number;
   globalDR: number;
   magicDR: number;
@@ -51,6 +53,8 @@ const DEFAULT: State = {
   block: 20,
   blockValue: 500,
 
+  mindOverMatterMiss: 54.32,
+
   physicalDR: 0,
   globalDR: 0,
   magicDR: 0,
@@ -70,25 +74,10 @@ export default function Page() {
   }
 
   const r = useMemo(() => {
-    const defenseDelta = Math.max(0, s.defenseCurrent - s.defenseBase);
-
     const armorDR = clamp(s.armorDR, 0, 95);
     const physicalDR = clamp(s.physicalDR, 0, 95);
     const globalDR = clamp(s.globalDR, 0, 95);
     const magicDR = clamp(s.magicDR, 0, 95);
-
-    const dodge = clamp(s.dodge, 0, 100);
-    const parry = clamp(s.parry, 0, 100);
-    const block = clamp(s.block, 0, 100);
-
-    let missFromDefense = 0;
-    let totalCTC = 0;
-    let capped = false;
-    let whiteCoverageLabel = "";
-    let whiteAverageTaken = 0;
-    let whiteWorstTaken = 0;
-    let whiteBlockedValue = 0;
-    let whiteUnblockedValue = 0;
 
     const whiteAfterArmor = s.whiteHit * (1 - armorDR / 100);
     const whiteAfterPhysical = whiteAfterArmor * (1 - physicalDR / 100);
@@ -101,56 +90,59 @@ export default function Page() {
     const magicAfterMagic = s.magicHit * (1 - magicDR / 100);
     const magicAfterGlobal = magicAfterMagic * (1 - globalDR / 100);
 
-    if (s.tankType === "classic") {
-      missFromDefense = 5 + defenseDelta * 0.04;
-      totalCTC = dodge + parry + block + missFromDefense;
-      capped = totalCTC >= 102.4;
+    let defenseDelta = 0;
+    let missFromDefense = 0;
+    let totalCoverage = 0;
+    let capped = false;
+    let whiteCoverageLabel = "";
+    let whiteAverageTaken = 0;
+    let whiteWorstTaken = 0;
 
-      whiteBlockedValue = Math.max(
+    if (s.tankType === "classic") {
+      defenseDelta = Math.max(0, s.defenseCurrent - s.defenseBase);
+      missFromDefense = 5 + defenseDelta * 0.04;
+
+      const dodge = clamp(s.dodge, 0, 100);
+      const parry = clamp(s.parry, 0, 100);
+      const block = clamp(s.block, 0, 100);
+
+      totalCoverage = dodge + parry + block + missFromDefense;
+      capped = totalCoverage >= 102.4;
+
+      const blockedWhite = Math.max(
         0,
         whiteAfterGlobal - Math.min(s.blockValue, whiteAfterGlobal) - s.absorb
       );
-      whiteUnblockedValue = Math.max(0, whiteAfterGlobal - s.absorb);
-
-      const missChance = clamp(missFromDefense, 0, 100);
-      const dodgeChance = clamp(dodge, 0, 100);
-      const parryChance = clamp(parry, 0, 100);
-      const blockChance = clamp(block, 0, 100);
+      const unblockedWhite = Math.max(0, whiteAfterGlobal - s.absorb);
 
       const remainingHitChance = Math.max(
         0,
-        100 - (missChance + dodgeChance + parryChance + blockChance)
+        100 - (missFromDefense + dodge + parry + block)
       );
 
       whiteAverageTaken = capped
         ? 0
         : Math.max(
             0,
-            (whiteBlockedValue * blockChance +
-              whiteUnblockedValue * remainingHitChance) /
-              100
+            (blockedWhite * block + unblockedWhite * remainingHitChance) / 100
           );
 
-      whiteWorstTaken = capped ? 0 : whiteUnblockedValue;
+      whiteWorstTaken = capped ? 0 : unblockedWhite;
       whiteCoverageLabel = capped
         ? "CTC-capped against white swings"
         : "Not CTC-capped against white swings";
     } else {
-      // Mind over Matter:
-      // Based on your logs, this behaves like MISS-only white coverage.
-      // No dodge/parry/block coverage is used here.
-      missFromDefense = defenseDelta * 0.04;
-      totalCTC = missFromDefense;
+      const momMiss = clamp(s.mindOverMatterMiss, 0, 95);
+
+      missFromDefense = momMiss;
+      totalCoverage = momMiss;
       capped = false;
 
-      whiteUnblockedValue = Math.max(0, whiteAfterGlobal - s.absorb);
+      const unblockedWhite = Math.max(0, whiteAfterGlobal - s.absorb);
+      const hitChance = Math.max(0, 100 - momMiss);
 
-      const missChance = clamp(missFromDefense, 0, 100);
-      const hitChance = Math.max(0, 100 - missChance);
-
-      whiteAverageTaken = (whiteUnblockedValue * hitChance) / 100;
-      whiteWorstTaken = whiteUnblockedValue;
-
+      whiteAverageTaken = (unblockedWhite * hitChance) / 100;
+      whiteWorstTaken = unblockedWhite;
       whiteCoverageLabel = "Mind over Matter white-swing model";
     }
 
@@ -169,12 +161,12 @@ export default function Page() {
       }
     } else {
       issues.push(
-        "Mind over Matter is modeled as miss-based white swing coverage."
+        "Mind over Matter is treated as miss-based white swing coverage."
       );
       issues.push(
-        "This setup is excellent against white swings but does not avoid burst abilities."
+        "Burst abilities are still evaluated separately from white swing miss."
       );
-      rec.push("Treat burst survival separately from white swing coverage.");
+      rec.push("Use your real in-game Mind over Matter miss value.");
     }
 
     if (fierceFinal > s.hp * 0.6) {
@@ -187,10 +179,6 @@ export default function Page() {
       rec.push("Increase magic DR, global DR, absorb, or health.");
     }
 
-    if (s.tankType === "mind_over_matter" && missFromDefense < 70) {
-      rec.push("Increase defense if you want stronger Mind over Matter coverage.");
-    }
-
     if (rec.length === 0) {
       rec.push("No major weakness detected from current inputs.");
     }
@@ -198,13 +186,11 @@ export default function Page() {
     return {
       defenseDelta,
       missFromDefense,
-      totalCTC,
+      totalCoverage,
       capped,
       whiteCoverageLabel,
       whiteAverageTaken,
       whiteWorstTaken,
-      whiteBlockedValue,
-      whiteUnblockedValue,
       fierceFinal,
       magicFinal,
       issues,
@@ -352,11 +338,11 @@ export default function Page() {
               marginBottom: 16,
             }}
           >
-            Calculator — V13
+            Calculator — V13.1
           </div>
 
           <h1 style={{ margin: 0, fontSize: 42, lineHeight: 1.05 }}>
-            Tank model selection: Classic CTC or Mind over Matter.
+            Classic CTC and Mind over Matter, separated correctly.
           </h1>
 
           <p
@@ -368,9 +354,9 @@ export default function Page() {
               marginTop: 14,
             }}
           >
-            This version supports two defensive models. Classic tanks are evaluated
-            through white swing CTC coverage. Mind over Matter tanks are evaluated
-            through miss-based white swing coverage and separate burst survival.
+            Classic tanks use CTC-style white swing coverage. Mind over Matter tanks
+            use a miss-based white swing model with their own dedicated input.
+            Burst survival is still evaluated separately in both cases.
           </p>
         </section>
 
@@ -426,16 +412,25 @@ export default function Page() {
                 {input("Health", "hp")}
                 {input("Armor (from sheet)", "armor")}
                 {input("Armor DR % (from game)", "armorDR")}
-                {input("Defense Current", "defenseCurrent")}
-                {input("Defense Base", "defenseBase")}
-                {input("Dodge %", "dodge")}
-                {input("Parry %", "parry")}
-                {input("Block %", "block")}
-                {input("Block Value", "blockValue")}
                 {input("Physical DR %", "physicalDR")}
                 {input("Global DR %", "globalDR")}
                 {input("Magic DR %", "magicDR")}
                 {input("Absorb", "absorb")}
+
+                {s.tankType === "classic" ? (
+                  <>
+                    {input("Defense Current", "defenseCurrent")}
+                    {input("Defense Base", "defenseBase")}
+                    {input("Dodge %", "dodge")}
+                    {input("Parry %", "parry")}
+                    {input("Block %", "block")}
+                    {input("Block Value", "blockValue")}
+                  </>
+                ) : (
+                  <>
+                    {input("Mind over Matter Miss %", "mindOverMatterMiss")}
+                  </>
+                )}
               </div>
             </div>
 
@@ -447,35 +442,6 @@ export default function Page() {
                 {input("Magic Hit", "magicHit")}
               </div>
             </div>
-
-            <div style={cardStyle}>
-              <h2 style={sectionTitleStyle}>Notes</h2>
-              <div style={{ display: "grid", gap: 8, color: "#cbd5e1", lineHeight: 1.6 }}>
-                {s.tankType === "classic" ? (
-                  <>
-                    <div>
-                      <strong>Classic mode:</strong> white swings are evaluated with
-                      dodge, parry, block, base miss, and defense-based miss.
-                    </div>
-                    <div>
-                      <strong>Important:</strong> Fierce Blow is still treated
-                      separately from white swing coverage.
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <strong>Mind over Matter mode:</strong> modeled from your logs as
-                      miss-based white swing coverage.
-                    </div>
-                    <div>
-                      <strong>Important:</strong> burst abilities are treated as always
-                      connecting, so survival depends on DR, absorb, and health.
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -485,7 +451,7 @@ export default function Page() {
                 {r.whiteCoverageLabel}
               </div>
               <div style={{ marginTop: 12, color: "#cbd5e1" }}>
-                Coverage Value: <strong>{r.totalCTC.toFixed(2)}</strong>
+                Coverage Value: <strong>{r.totalCoverage.toFixed(2)}</strong>
                 {s.tankType === "classic" ? " / 102.4" : "% miss-based"}
               </div>
             </div>
@@ -497,18 +463,34 @@ export default function Page() {
                 gap: 14,
               }}
             >
-              {metricCard(
-                "Defense Delta",
-                `${r.defenseDelta}`,
-                "Current defense minus base defense"
+              {s.tankType === "classic" ? (
+                <>
+                  {metricCard(
+                    "Defense Delta",
+                    `${r.defenseDelta}`,
+                    "Current defense minus base defense"
+                  )}
+                  {metricCard(
+                    "Miss from Defense",
+                    `${r.missFromDefense.toFixed(2)}%`,
+                    "Base miss + defense contribution"
+                  )}
+                </>
+              ) : (
+                <>
+                  {metricCard(
+                    "Mind over Matter Miss",
+                    `${r.missFromDefense.toFixed(2)}%`,
+                    "Use your real in-game miss value"
+                  )}
+                  {metricCard(
+                    "Armor DR",
+                    `${clamp(s.armorDR, 0, 95).toFixed(2)}%`,
+                    "Manual value from your character sheet"
+                  )}
+                </>
               )}
-              {metricCard(
-                s.tankType === "classic" ? "Miss from Defense" : "Miss from Defense",
-                `${r.missFromDefense.toFixed(2)}%`,
-                s.tankType === "classic"
-                  ? "Base miss + defense contribution"
-                  : "Mind over Matter white swing miss model"
-              )}
+
               {metricCard(
                 "White Avg Taken",
                 `${Math.round(r.whiteAverageTaken)}`,
@@ -524,8 +506,8 @@ export default function Page() {
             {progressBar(
               s.tankType === "classic" ? "CTC Progress" : "Miss Coverage",
               s.tankType === "classic"
-                ? (r.totalCTC / 102.4) * 100
-                : r.totalCTC,
+                ? (r.totalCoverage / 102.4) * 100
+                : r.totalCoverage,
               s.tankType === "classic"
                 ? "linear-gradient(90deg, #22c55e, #16a34a)"
                 : "linear-gradient(90deg, #a78bfa, #7c3aed)",
@@ -533,7 +515,7 @@ export default function Page() {
                 ? r.capped
                   ? "You are capped against standard white swings."
                   : "You still have white swing coverage missing."
-                : "Mind over Matter is treated as white swing miss coverage."
+                : "Mind over Matter is treated as miss-based white swing coverage."
             )}
 
             <div style={cardStyle}>
